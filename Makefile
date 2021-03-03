@@ -1,9 +1,17 @@
 .PHONY: all
-all: fmt build test schema
+all: fmt lint build test schema
+
+.PHONY: clean
+clean:
+	@cargo clean
 
 .PHONY: fmt
 fmt:
 	@cargo fmt --all -- --check
+
+.PHONY: lint
+lint:
+	@cargo clippy -- -D warnings
 
 .PHONY: build
 build:
@@ -13,21 +21,9 @@ build:
 test:
 	@RUST_BACKTRACE=1 cargo unit-test
 
-.PHONY: lint
-lint:
-	@cargo clippy -- -D warnings
-
 .PHONY: schema
 schema:
 	@cargo schema
-
-.PHONY: clean
-clean:
-	@cargo clean
-
-.PHONY: check
-check:
-	@cargo check
 
 .PHONY: optimize
 optimize:
