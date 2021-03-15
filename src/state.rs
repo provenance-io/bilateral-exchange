@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub static NAMESPACE_ORDER_ASK: &[u8] = b"ask";
 pub static NAMESPACE_ORDER_BID: &[u8] = b"bid";
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct AskOrder {
     pub asset: Vec<Coin>,
     pub id: String,
@@ -14,7 +14,7 @@ pub struct AskOrder {
     pub price: Vec<Coin>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct BidOrder {
     pub asset: Vec<Coin>,
     pub id: String,

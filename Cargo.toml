@@ -28,14 +28,14 @@ overflow-checks = true
 #backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
-cosmwasm-std = { version = "0.13.2" }
-cosmwasm-storage = { version = "0.13.2" }
-cw-storage-plus = { version = "0.5.0" }
-provwasm-std = { version = "0.13.2" }
+cosmwasm-std = { version = "0.14.0-beta1", features = ["staking"] }
+cosmwasm-storage = { version = "0.14.0-beta1" }
+cw-storage-plus = { version = "0.6.0-alpha1" }
+provwasm-std = { version = "0.14.0", path = "../provwasm/packages/bindings" }
 schemars = "0.7"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.23" }
 
 [dev-dependencies]
-cosmwasm-schema = { version = "0.13.2" }
-provwasm-mocks = { version = "0.13.2" }
+cosmwasm-schema = { version = "0.14.0-beta1" }
+provwasm-mocks = { version = "0.14.0", path = "../provwasm/packages/mocks" }

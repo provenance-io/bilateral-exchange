@@ -1,24 +1,23 @@
 use cosmwasm_std::{
-    attr, to_binary, BankMsg, Binary, Coin, Context, Deps, DepsMut, Env, HandleResponse,
-    InitResponse, MessageInfo, StdResult,
+    attr, to_binary, BankMsg, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
 };
-use provwasm_std::{bind_name, ProvenanceMsg};
+use provwasm_std::{bind_name, NameBinding, ProvenanceMsg};
 
 use crate::contract_info::{get_contract_info, set_contract_info};
 use crate::error::ContractError;
-use crate::msg::{HandleMsg, InitMsg, QueryMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
     get_ask_storage, get_ask_storage_read, get_bid_storage, get_bid_storage_read, AskOrder,
     BidOrder,
 };
 
 // smart contract initialization entrypoint
-pub fn init(
+pub fn instantiate(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    msg: InitMsg,
-) -> Result<InitResponse<ProvenanceMsg>, ContractError> {
+    msg: InstantiateMsg,
+) -> Result<Response<ProvenanceMsg>, ContractError> {
     if msg.bind_name.is_empty() {
         return Err(ContractError::MissingField {
             field: "bind_name".into(),
@@ -39,10 +38,11 @@ pub fn init(
     )?;
 
     // create name binding provenance message
-    let bind_name_msg = bind_name(msg.bind_name, env.contract.address);
+    let bind_name_msg = bind_name(msg.bind_name, env.contract.address, NameBinding::Restricted);
 
     // build response
-    Ok(InitResponse {
+    Ok(Response {
+        submessages: vec![],
         messages: vec![bind_name_msg],
         attributes: vec![
             attr(
@@ -51,22 +51,23 @@ pub fn init(
             ),
             attr("action", "init"),
         ],
+        data: None,
     })
 }
 
 // smart contract execute entrypoint
-pub fn handle(
+pub fn execute(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    msg: HandleMsg,
-) -> Result<HandleResponse<ProvenanceMsg>, ContractError> {
+    msg: ExecuteMsg,
+) -> Result<Response<ProvenanceMsg>, ContractError> {
     match msg {
-        HandleMsg::CreateAsk { id, price } => create_ask(deps, info, id, price),
-        HandleMsg::CreateBid { id, asset } => create_bid(deps, info, id, asset),
-        HandleMsg::CancelAsk { id } => cancel_ask(deps, env, info, id),
-        HandleMsg::CancelBid { id } => cancel_bid(deps, env, info, id),
-        HandleMsg::Execute { ask_id, bid_id } => execute(deps, env, info, ask_id, bid_id),
+        ExecuteMsg::CreateAsk { id, price } => create_ask(deps, info, id, price),
+        ExecuteMsg::CreateBid { id, asset } => create_bid(deps, info, id, asset),
+        ExecuteMsg::CancelAsk { id } => cancel_ask(deps, env, info, id),
+        ExecuteMsg::CancelBid { id } => cancel_bid(deps, env, info, id),
+        ExecuteMsg::Execute { ask_id, bid_id } => execute_match(deps, env, info, ask_id, bid_id),
     }
 }
 
@@ -76,11 +77,11 @@ fn create_ask(
     info: MessageInfo,
     id: String,
     price: Vec<Coin>,
-) -> Result<HandleResponse<ProvenanceMsg>, ContractError> {
+) -> Result<Response<ProvenanceMsg>, ContractError> {
     if id.is_empty() {
         return Err(ContractError::MissingField { field: "id".into() });
     }
-    if info.sent_funds.is_empty() {
+    if info.funds.is_empty() {
         return Err(ContractError::MissingAskAsset);
     }
     if price.is_empty() {
@@ -92,7 +93,7 @@ fn create_ask(
     let mut ask_storage = get_ask_storage(deps.storage);
 
     let ask_order = AskOrder {
-        asset: info.sent_funds,
+        asset: info.funds,
         id,
         owner: info.sender,
         price,
@@ -100,7 +101,8 @@ fn create_ask(
 
     ask_storage.save(&ask_order.id.as_bytes(), &ask_order)?;
 
-    Ok(HandleResponse {
+    Ok(Response {
+        submessages: vec![],
         messages: vec![],
         attributes: vec![attr("action", "create_ask")],
         data: Some(to_binary(&ask_order)?),
@@ -113,7 +115,7 @@ fn create_bid(
     info: MessageInfo,
     id: String,
     asset: Vec<Coin>,
-) -> Result<HandleResponse<ProvenanceMsg>, ContractError> {
+) -> Result<Response<ProvenanceMsg>, ContractError> {
     if asset.is_empty() {
         return Err(ContractError::MissingField {
             field: "asset".into(),
@@ -122,14 +124,14 @@ fn create_bid(
     if id.is_empty() {
         return Err(ContractError::MissingField { field: "id".into() });
     }
-    if info.sent_funds.is_empty() {
+    if info.funds.is_empty() {
         return Err(ContractError::MissingBidPrice);
     }
 
     let mut bid_storage = get_bid_storage(deps.storage);
 
     let bid_order = BidOrder {
-        price: info.sent_funds,
+        price: info.funds,
         id,
         owner: info.sender,
         asset,
@@ -137,7 +139,8 @@ fn create_bid(
 
     bid_storage.save(&bid_order.id.as_bytes(), &bid_order)?;
 
-    Ok(HandleResponse {
+    Ok(Response {
+        submessages: vec![],
         messages: vec![],
         attributes: vec![attr("action", "create_bid")],
         data: Some(to_binary(&bid_order)?),
@@ -147,63 +150,64 @@ fn create_bid(
 // cancel ask entrypoint
 fn cancel_ask(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     info: MessageInfo,
     id: String,
-) -> Result<HandleResponse<ProvenanceMsg>, ContractError> {
+) -> Result<Response<ProvenanceMsg>, ContractError> {
     // return error if id is empty
     if id.is_empty() {
         return Err(ContractError::Unauthorized {});
     }
 
     // return error if funds sent
-    if !info.sent_funds.is_empty() {
+    if !info.funds.is_empty() {
         return Err(ContractError::CancelWithFunds {});
     }
 
     let ask_storage = get_ask_storage_read(deps.storage);
     let stored_ask_order = ask_storage.load(id.as_bytes());
     match stored_ask_order {
+        Err(_) => Err(ContractError::Unauthorized {}),
         Ok(stored_ask_order) => {
             if !info.sender.eq(&stored_ask_order.owner) {
                 return Err(ContractError::Unauthorized {});
             }
 
-            let mut response = Context::new();
-
-            // add 'send asset back to owner' message
-            response.add_message(BankMsg::Send {
-                from_address: env.contract.address,
-                to_address: stored_ask_order.owner,
-                amount: stored_ask_order.asset,
-            });
-
-            response.add_attribute("action", "cancel_ask");
-
-            // finally remove the ask order from storage
+            // remove the ask order from storage
             let mut ask_storage = get_ask_storage(deps.storage);
             ask_storage.remove(id.as_bytes());
 
-            Ok(response.into())
+            // 'send asset back to owner' message
+            let response = Response {
+                submessages: vec![],
+                messages: vec![BankMsg::Send {
+                    to_address: stored_ask_order.owner,
+                    amount: stored_ask_order.asset,
+                }
+                .into()],
+                attributes: vec![attr("action", "cancel_ask")],
+                data: None,
+            };
+
+            Ok(response)
         }
-        Err(_) => Err(ContractError::Unauthorized {}),
     }
 }
 
 // cancel ask entrypoint
 fn cancel_bid(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     info: MessageInfo,
     id: String,
-) -> Result<HandleResponse<ProvenanceMsg>, ContractError> {
+) -> Result<Response<ProvenanceMsg>, ContractError> {
     // return error if id is empty
     if id.is_empty() {
         return Err(ContractError::Unauthorized {});
     }
 
     // return error if funds sent
-    if !info.sent_funds.is_empty() {
+    if !info.funds.is_empty() {
         return Err(ContractError::CancelWithFunds {});
     }
 
@@ -215,41 +219,42 @@ fn cancel_bid(
                 return Err(ContractError::Unauthorized {});
             }
 
-            let mut response = Context::new();
-
-            // add 'send asset back to owner' message
-            response.add_message(BankMsg::Send {
-                from_address: env.contract.address,
-                to_address: stored_bid_order.owner,
-                amount: stored_bid_order.price,
-            });
-
-            response.add_attribute("action", "cancel_bid");
-
-            // finally remove the ask order from storage
+            // remove the ask order from storage
             let mut bid_storage = get_bid_storage(deps.storage);
             bid_storage.remove(id.as_bytes());
 
-            Ok(response.into())
+            // 'send price back to owner' message
+            let response = Response {
+                submessages: vec![],
+                messages: vec![BankMsg::Send {
+                    to_address: stored_bid_order.owner,
+                    amount: stored_bid_order.price,
+                }
+                .into()],
+                attributes: vec![attr("action", "cancel_bid")],
+                data: None,
+            };
+
+            Ok(response)
         }
         Err(_) => Err(ContractError::Unauthorized {}),
     }
 }
 
-fn execute(
+fn execute_match(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     info: MessageInfo,
     ask_id: String,
     bid_id: String,
-) -> Result<HandleResponse<ProvenanceMsg>, ContractError> {
+) -> Result<Response<ProvenanceMsg>, ContractError> {
     // return error if id is empty
     if ask_id.is_empty() | bid_id.is_empty() {
         return Err(ContractError::Unauthorized {});
     }
 
     // return error if funds sent
-    if !info.sent_funds.is_empty() {
+    if !info.funds.is_empty() {
         return Err(ContractError::ExecuteWithFunds {});
     }
 
@@ -272,29 +277,30 @@ fn execute(
         return Err(ContractError::AskBidMismatch {});
     }
 
-    let mut response = Context::new();
-
-    // add 'send price to asker' message
-    response.add_message(BankMsg::Send {
-        from_address: env.contract.address.clone(),
-        to_address: ask_order.owner,
-        amount: ask_order.price,
-    });
-
-    // add 'send asset to bidder' message
-    response.add_message(BankMsg::Send {
-        from_address: env.contract.address,
-        to_address: bid_order.owner,
-        amount: bid_order.asset,
-    });
-
-    response.add_attribute("action", "execute");
+    // 'send price to asker' and 'send asset to bidder' messages
+    let response = Response {
+        submessages: vec![],
+        messages: vec![
+            BankMsg::Send {
+                to_address: ask_order.owner,
+                amount: ask_order.price,
+            }
+            .into(),
+            BankMsg::Send {
+                to_address: bid_order.owner,
+                amount: bid_order.asset,
+            }
+            .into(),
+        ],
+        attributes: vec![attr("action", "execute")],
+        data: None,
+    };
 
     // finally remove the orders from storage
     get_ask_storage(deps.storage).remove(ask_id.as_bytes());
     get_bid_storage(deps.storage).remove(bid_id.as_bytes());
 
-    Ok(response.into())
+    Ok(response)
 }
 
 fn is_executable(ask_order: &AskOrder, bid_order: &BidOrder) -> bool {
@@ -307,12 +313,12 @@ fn is_executable(ask_order: &AskOrder, bid_order: &BidOrder) -> bool {
     let mut bid_asset = bid_order.asset.to_owned();
     bid_asset.sort_by(coin_sorter);
 
-    let mut ask_asset = ask_order.asset.to_owned();
-    ask_asset.sort_by(coin_sorter);
-    let mut bid_asset = bid_order.asset.to_owned();
-    bid_asset.sort_by(coin_sorter);
+    let mut ask_price = ask_order.price.to_owned();
+    ask_price.sort_by(coin_sorter);
+    let mut bid_price = bid_order.price.to_owned();
+    bid_price.sort_by(coin_sorter);
 
-    ask_asset == bid_asset && ask_order.price == bid_order.price
+    ask_asset == bid_asset && ask_price == bid_price
 }
 
 // smart contract query entrypoint
@@ -342,6 +348,7 @@ mod tests {
     use crate::state::get_bid_storage_read;
 
     use super::*;
+    use crate::msg::ExecuteMsg;
 
     #[test]
     fn test_is_executable() {
@@ -416,17 +423,17 @@ mod tests {
     }
 
     #[test]
-    fn init_with_valid_data() {
+    fn instantiate_with_valid_data() {
         // create valid init data
         let mut deps = mock_dependencies(&[]);
         let info = mock_info("contract_admin", &[]);
-        let init_msg = InitMsg {
+        let init_msg = InstantiateMsg {
             bind_name: "contract_bind_name".to_string(),
             contract_name: "contract_name".to_string(),
         };
 
         // initialize
-        let init_response = init(deps.as_mut(), mock_env(), info, init_msg.clone());
+        let init_response = instantiate(deps.as_mut(), mock_env(), info, init_msg.clone());
 
         // verify initialize response
         match init_response {
@@ -461,17 +468,17 @@ mod tests {
     }
 
     #[test]
-    fn init_with_invalid_data() {
+    fn instantiate_with_invalid_data() {
         // create invalid init data
         let mut deps = mock_dependencies(&[]);
         let info = mock_info("contract_owner", &[]);
-        let init_msg = InitMsg {
+        let init_msg = InstantiateMsg {
             bind_name: "".to_string(),
             contract_name: "contract_name".to_string(),
         };
 
         // initialize
-        let init_response = init(deps.as_mut(), mock_env(), info.to_owned(), init_msg);
+        let init_response = instantiate(deps.as_mut(), mock_env(), info.to_owned(), init_msg);
 
         // verify initialize response
         match init_response {
@@ -484,13 +491,13 @@ mod tests {
             },
         }
 
-        let init_msg = InitMsg {
+        let init_msg = InstantiateMsg {
             bind_name: "bind_name".to_string(),
             contract_name: "".to_string(),
         };
 
         // initialize
-        let init_response = init(deps.as_mut(), mock_env(), info.to_owned(), init_msg);
+        let init_response = instantiate(deps.as_mut(), mock_env(), info.to_owned(), init_msg);
 
         // verify initialize response
         match init_response {
@@ -517,7 +524,7 @@ mod tests {
         }
 
         // create ask data
-        let create_ask_msg = HandleMsg::CreateAsk {
+        let create_ask_msg = ExecuteMsg::CreateAsk {
             id: "ask_id".into(),
             price: coins(100, "price_1"),
         };
@@ -525,7 +532,7 @@ mod tests {
         let asker_info = mock_info("asker", &coins(2, "asset_1"));
 
         // handle create ask
-        let create_ask_response = handle(
+        let create_ask_response = execute(
             deps.as_mut(),
             mock_env(),
             asker_info.clone(),
@@ -545,13 +552,13 @@ mod tests {
 
         // verify ask order stored
         let ask_storage = get_ask_storage_read(&deps.storage);
-        if let HandleMsg::CreateAsk { id, price } = create_ask_msg {
+        if let ExecuteMsg::CreateAsk { id, price } = create_ask_msg {
             match ask_storage.load("ask_id".to_string().as_bytes()) {
                 Ok(stored_order) => {
                     assert_eq!(
                         stored_order,
                         AskOrder {
-                            asset: asker_info.sent_funds,
+                            asset: asker_info.funds,
                             id,
                             owner: asker_info.sender,
                             price,
@@ -580,13 +587,13 @@ mod tests {
         }
 
         // create ask invalid data
-        let create_ask_msg = HandleMsg::CreateAsk {
+        let create_ask_msg = ExecuteMsg::CreateAsk {
             id: "".into(),
             price: vec![],
         };
 
         // handle create ask
-        let create_ask_response = handle(
+        let create_ask_response = execute(
             deps.as_mut(),
             mock_env(),
             mock_info("asker", &[]),
@@ -605,22 +612,22 @@ mod tests {
         }
 
         // create ask missing id
-        let create_ask_msg = HandleMsg::CreateAsk {
+        let create_ask_msg = ExecuteMsg::CreateAsk {
             id: "".into(),
             price: coins(100, "price_1"),
         };
 
         // handle create ask
-        let create_ask_response = handle(
+        let create_ask_response = execute(
             deps.as_mut(),
             mock_env(),
             mock_info("asker", &coins(100, "asset_1")),
             create_ask_msg,
         );
 
-        // verify handle create ask response returns ContractError::MissingField { id }
+        // verify execute create ask response returns ContractError::MissingField { id }
         match create_ask_response {
-            Ok(_) => panic!("expected error, but handle_create_ask_response ok"),
+            Ok(_) => panic!("expected error, but execute_create_ask_response ok"),
             Err(error) => match error {
                 ContractError::MissingField { field } => {
                     assert_eq!(field, "id")
@@ -630,22 +637,22 @@ mod tests {
         }
 
         // create ask missing price
-        let create_ask_msg = HandleMsg::CreateAsk {
+        let create_ask_msg = ExecuteMsg::CreateAsk {
             id: "id".into(),
             price: vec![],
         };
 
-        // handle create ask
-        let create_ask_response = handle(
+        // execute create ask
+        let create_ask_response = execute(
             deps.as_mut(),
             mock_env(),
             mock_info("asker", &coins(100, "asset_1")),
             create_ask_msg,
         );
 
-        // verify handle create ask response returns ContractError::MissingField { price }
+        // verify execute create ask response returns ContractError::MissingField { price }
         match create_ask_response {
-            Ok(_) => panic!("expected error, but handle_create_ask_response ok"),
+            Ok(_) => panic!("expected error, but execute_create_ask_response ok"),
             Err(error) => match error {
                 ContractError::MissingField { field } => {
                     assert_eq!(field, "price")
@@ -655,22 +662,22 @@ mod tests {
         }
 
         // create ask missing asset
-        let create_ask_msg = HandleMsg::CreateAsk {
+        let create_ask_msg = ExecuteMsg::CreateAsk {
             id: "id".into(),
             price: coins(100, "price_1"),
         };
 
-        // handle create ask
-        let create_ask_response = handle(
+        // execute create ask
+        let create_ask_response = execute(
             deps.as_mut(),
             mock_env(),
             mock_info("asker", &[]),
             create_ask_msg,
         );
 
-        // verify handle create ask response returns ContractError::AskMissingAsset
+        // verify execute create ask response returns ContractError::AskMissingAsset
         match create_ask_response {
-            Ok(_) => panic!("expected error, but handle_create_ask_response ok"),
+            Ok(_) => panic!("expected error, but execute_create_ask_response ok"),
             Err(error) => match error {
                 ContractError::MissingAskAsset {} => {}
                 error => panic!("unexpected error: {:?}", error),
@@ -691,22 +698,22 @@ mod tests {
         }
 
         // create bid data
-        let create_bid_msg = HandleMsg::CreateBid {
+        let create_bid_msg = ExecuteMsg::CreateBid {
             id: "bid_id".into(),
             asset: coins(100, "asset_1"),
         };
 
         let bidder_info = mock_info("bidder", &coins(2, "mark_2"));
 
-        // handle create bid
-        let create_bid_response = handle(
+        // execute create bid
+        let create_bid_response = execute(
             deps.as_mut(),
             mock_env(),
             bidder_info.clone(),
             create_bid_msg.clone(),
         );
 
-        // verify handle create bid response
+        // verify execute create bid response
         match create_bid_response {
             Ok(response) => {
                 assert_eq!(response.attributes.len(), 1);
@@ -719,7 +726,7 @@ mod tests {
 
         // verify bid order stored
         let bid_storage = get_bid_storage_read(&deps.storage);
-        if let HandleMsg::CreateBid { id, asset } = create_bid_msg {
+        if let ExecuteMsg::CreateBid { id, asset } = create_bid_msg {
             match bid_storage.load("bid_id".to_string().as_bytes()) {
                 Ok(stored_order) => {
                     assert_eq!(
@@ -728,7 +735,7 @@ mod tests {
                             asset,
                             id,
                             owner: bidder_info.sender,
-                            price: bidder_info.sent_funds,
+                            price: bidder_info.funds,
                         }
                     )
                 }
@@ -754,20 +761,20 @@ mod tests {
         }
 
         // create bid missing id
-        let create_bid_msg = HandleMsg::CreateBid {
+        let create_bid_msg = ExecuteMsg::CreateBid {
             id: "".into(),
             asset: coins(100, "asset_1"),
         };
 
-        // handle create bid
-        let create_bid_response = handle(
+        // execute create bid
+        let create_bid_response = execute(
             deps.as_mut(),
             mock_env(),
             mock_info("bidder", &coins(100, "price_1")),
             create_bid_msg,
         );
 
-        // verify handle create bid response returns ContractError::MissingField { id }
+        // verify execute create bid response returns ContractError::MissingField { id }
         match create_bid_response {
             Ok(_) => panic!("expected error, but create_bid_response ok"),
             Err(error) => match error {
@@ -779,20 +786,20 @@ mod tests {
         }
 
         // create bid missing asset
-        let create_bid_msg = HandleMsg::CreateBid {
+        let create_bid_msg = ExecuteMsg::CreateBid {
             id: "id".into(),
             asset: vec![],
         };
 
-        // handle create bid
-        let create_bid_response = handle(
+        // execute create bid
+        let create_bid_response = execute(
             deps.as_mut(),
             mock_env(),
             mock_info("bidder", &coins(100, "price_1")),
             create_bid_msg,
         );
 
-        // verify handle create bid response returns ContractError::MissingField { asset }
+        // verify execute create bid response returns ContractError::MissingField { asset }
         match create_bid_response {
             Ok(_) => panic!("expected error, but create_bid_response ok"),
             Err(error) => match error {
@@ -804,20 +811,20 @@ mod tests {
         }
 
         // create bid missing price
-        let create_bid_msg = HandleMsg::CreateBid {
+        let create_bid_msg = ExecuteMsg::CreateBid {
             id: "id".into(),
             asset: coins(100, "asset_1"),
         };
 
-        // handle create bid
-        let create_bid_response = handle(
+        // execute create bid
+        let create_bid_response = execute(
             deps.as_mut(),
             mock_env(),
             mock_info("bidder", &[]),
             create_bid_msg,
         );
 
-        // verify handle create bid response returns ContractError::BidMissingPrice
+        // verify execute create bid response returns ContractError::BidMissingPrice
         match create_bid_response {
             Ok(_) => panic!("expected error, but create_bid_response ok"),
             Err(error) => match error {
@@ -842,13 +849,13 @@ mod tests {
         // create ask data
         let asker_info = mock_info("asker", &coins(200, "asset_1"));
 
-        let create_ask_msg = HandleMsg::CreateAsk {
+        let create_ask_msg = ExecuteMsg::CreateAsk {
             id: "ask_id".into(),
             price: coins(100, "price_1"),
         };
 
-        // handle create ask
-        if let Err(error) = handle(deps.as_mut(), mock_env(), asker_info, create_ask_msg) {
+        // execute create ask
+        if let Err(error) = execute(deps.as_mut(), mock_env(), asker_info, create_ask_msg) {
             panic!("unexpected error: {:?}", error)
         }
 
@@ -862,10 +869,10 @@ mod tests {
         // cancel ask order
         let asker_info = mock_info("asker", &[]);
 
-        let cancel_ask_msg = HandleMsg::CancelAsk {
+        let cancel_ask_msg = ExecuteMsg::CancelAsk {
             id: "ask_id".to_string(),
         };
-        let cancel_ask_response = handle(
+        let cancel_ask_response = execute(
             deps.as_mut(),
             mock_env(),
             asker_info.clone(),
@@ -883,7 +890,6 @@ mod tests {
                 assert_eq!(
                     cancel_ask_response.messages[0],
                     CosmosMsg::Bank(BankMsg::Send {
-                        from_address: MOCK_CONTRACT_ADDR.into(),
                         to_address: asker_info.sender,
                         amount: coins(200, "asset_1"),
                     })
@@ -901,7 +907,7 @@ mod tests {
 
         // create bid data
         let bidder_info = mock_info("bidder", &coins(100, "price_1"));
-        let create_bid_msg = HandleMsg::CreateBid {
+        let create_bid_msg = ExecuteMsg::CreateBid {
             id: "bid_id".into(),
             asset: vec![Coin {
                 denom: "asset_1".into(),
@@ -909,8 +915,8 @@ mod tests {
             }],
         };
 
-        // handle create bid
-        if let Err(error) = handle(deps.as_mut(), mock_env(), bidder_info, create_bid_msg) {
+        // execute create bid
+        if let Err(error) = execute(deps.as_mut(), mock_env(), bidder_info, create_bid_msg) {
             panic!("unexpected error: {:?}", error)
         }
 
@@ -924,11 +930,11 @@ mod tests {
         // cancel bid order
         let bidder_info = mock_info("bidder", &[]);
 
-        let cancel_bid_msg = HandleMsg::CancelBid {
+        let cancel_bid_msg = ExecuteMsg::CancelBid {
             id: "bid_id".to_string(),
         };
 
-        let cancel_bid_response = handle(
+        let cancel_bid_response = execute(
             deps.as_mut(),
             mock_env(),
             bidder_info.clone(),
@@ -946,7 +952,6 @@ mod tests {
                 assert_eq!(
                     cancel_bid_response.messages[0],
                     CosmosMsg::Bank(BankMsg::Send {
-                        from_address: MOCK_CONTRACT_ADDR.into(),
                         to_address: bidder_info.sender,
                         amount: coins(100, "price_1"),
                     })
@@ -978,8 +983,8 @@ mod tests {
         let asker_info = mock_info("asker", &[]);
 
         // cancel ask order with missing id returns ContractError::Unauthorized
-        let cancel_ask_msg = HandleMsg::CancelAsk { id: "".to_string() };
-        let cancel_response = handle(
+        let cancel_ask_msg = ExecuteMsg::CancelAsk { id: "".to_string() };
+        let cancel_response = execute(
             deps.as_mut(),
             mock_env(),
             asker_info.clone(),
@@ -997,11 +1002,11 @@ mod tests {
         }
 
         // cancel non-existent ask order returns ContractError::Unauthorized
-        let cancel_ask_msg = HandleMsg::CancelAsk {
+        let cancel_ask_msg = ExecuteMsg::CancelAsk {
             id: "unknown_id".to_string(),
         };
 
-        let cancel_response = handle(
+        let cancel_response = execute(
             deps.as_mut(),
             mock_env(),
             asker_info.clone(),
@@ -1030,11 +1035,11 @@ mod tests {
         ) {
             panic!("unexpected error: {:?}", error)
         };
-        let cancel_ask_msg = HandleMsg::CancelAsk {
+        let cancel_ask_msg = ExecuteMsg::CancelAsk {
             id: "ask_id".to_string(),
         };
 
-        let cancel_response = handle(deps.as_mut(), mock_env(), asker_info, cancel_ask_msg);
+        let cancel_response = execute(deps.as_mut(), mock_env(), asker_info, cancel_ask_msg);
 
         match cancel_response {
             Err(error) => match error {
@@ -1048,11 +1053,11 @@ mod tests {
 
         // cancel ask order with sent_funds returns ContractError::CancelWithFunds
         let asker_info = mock_info("asker", &coins(1, "sent_coin"));
-        let cancel_ask_msg = HandleMsg::CancelAsk {
+        let cancel_ask_msg = ExecuteMsg::CancelAsk {
             id: "ask_id".to_string(),
         };
 
-        let cancel_response = handle(deps.as_mut(), mock_env(), asker_info, cancel_ask_msg);
+        let cancel_response = execute(deps.as_mut(), mock_env(), asker_info, cancel_ask_msg);
 
         match cancel_response {
             Err(error) => match error {
@@ -1105,12 +1110,12 @@ mod tests {
         };
 
         // execute on matched ask order and bid order
-        let execute_msg = HandleMsg::Execute {
+        let execute_msg = ExecuteMsg::Execute {
             ask_id: ask_order.id,
             bid_id: bid_order.id,
         };
 
-        let execute_response = handle(
+        let execute_response = execute(
             deps.as_mut(),
             mock_env(),
             mock_info("contract_admin", &[]),
@@ -1127,7 +1132,6 @@ mod tests {
                 assert_eq!(
                     execute_response.messages[0],
                     CosmosMsg::Bank(BankMsg::Send {
-                        from_address: MOCK_CONTRACT_ADDR.into(),
                         to_address: ask_order.owner,
                         amount: ask_order.price,
                     })
@@ -1135,7 +1139,6 @@ mod tests {
                 assert_eq!(
                     execute_response.messages[1],
                     CosmosMsg::Bank(BankMsg::Send {
-                        from_address: MOCK_CONTRACT_ADDR.into(),
                         to_address: bid_order.owner,
                         amount: bid_order.asset,
                     })
@@ -1184,12 +1187,12 @@ mod tests {
         };
 
         // execute on mismatched ask order and bid order returns ContractError::AskBidMismatch
-        let execute_msg = HandleMsg::Execute {
+        let execute_msg = ExecuteMsg::Execute {
             ask_id: "ask_id".into(),
             bid_id: "bid_id".into(),
         };
 
-        let execute_response = handle(
+        let execute_response = execute(
             deps.as_mut(),
             mock_env(),
             mock_info("contract_admin", &[]),
@@ -1203,12 +1206,12 @@ mod tests {
         }
 
         // execute on non-existent ask order and bid order returns ContractError::AskBidMismatch
-        let execute_msg = HandleMsg::Execute {
+        let execute_msg = ExecuteMsg::Execute {
             ask_id: "no_ask_id".into(),
             bid_id: "bid_id".into(),
         };
 
-        let execute_response = handle(
+        let execute_response = execute(
             deps.as_mut(),
             mock_env(),
             mock_info("contract_admin", &[]),
@@ -1222,12 +1225,12 @@ mod tests {
         }
 
         // execute on non-existent ask order and bid order returns ContractError::AskBidMismatch
-        let execute_msg = HandleMsg::Execute {
+        let execute_msg = ExecuteMsg::Execute {
             ask_id: "ask_id".into(),
             bid_id: "no_bid_id".into(),
         };
 
-        let execute_response = handle(
+        let execute_response = execute(
             deps.as_mut(),
             mock_env(),
             mock_info("contract_admin", &[]),
@@ -1241,12 +1244,12 @@ mod tests {
         }
 
         // execute with sent_funds returns ContractError::ExecuteWithFunds
-        let execute_msg = HandleMsg::Execute {
+        let execute_msg = ExecuteMsg::Execute {
             ask_id: "ask_id".into(),
             bid_id: "bid_id".into(),
         };
 
-        let execute_response = handle(
+        let execute_response = execute(
             deps.as_mut(),
             mock_env(),
             mock_info("contract_admin", &coins(100, "funds")),
