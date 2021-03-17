@@ -38,7 +38,7 @@ pub fn instantiate(
     )?;
 
     // create name binding provenance message
-    let bind_name_msg = bind_name(msg.bind_name, env.contract.address, NameBinding::Restricted);
+    let bind_name_msg = bind_name(msg.bind_name, env.contract.address, NameBinding::Restricted)?;
 
     // build response
     Ok(Response {
@@ -67,7 +67,9 @@ pub fn execute(
         ExecuteMsg::CreateBid { id, asset } => create_bid(deps, info, id, asset),
         ExecuteMsg::CancelAsk { id } => cancel_ask(deps, env, info, id),
         ExecuteMsg::CancelBid { id } => cancel_bid(deps, env, info, id),
-        ExecuteMsg::Execute { ask_id, bid_id } => execute_match(deps, env, info, ask_id, bid_id),
+        ExecuteMsg::ExecuteMatch { ask_id, bid_id } => {
+            execute_match(deps, env, info, ask_id, bid_id)
+        }
     }
 }
 
@@ -1110,7 +1112,7 @@ mod tests {
         };
 
         // execute on matched ask order and bid order
-        let execute_msg = ExecuteMsg::Execute {
+        let execute_msg = ExecuteMsg::ExecuteMatch {
             ask_id: ask_order.id,
             bid_id: bid_order.id,
         };
@@ -1187,7 +1189,7 @@ mod tests {
         };
 
         // execute on mismatched ask order and bid order returns ContractError::AskBidMismatch
-        let execute_msg = ExecuteMsg::Execute {
+        let execute_msg = ExecuteMsg::ExecuteMatch {
             ask_id: "ask_id".into(),
             bid_id: "bid_id".into(),
         };
@@ -1206,7 +1208,7 @@ mod tests {
         }
 
         // execute on non-existent ask order and bid order returns ContractError::AskBidMismatch
-        let execute_msg = ExecuteMsg::Execute {
+        let execute_msg = ExecuteMsg::ExecuteMatch {
             ask_id: "no_ask_id".into(),
             bid_id: "bid_id".into(),
         };
@@ -1225,7 +1227,7 @@ mod tests {
         }
 
         // execute on non-existent ask order and bid order returns ContractError::AskBidMismatch
-        let execute_msg = ExecuteMsg::Execute {
+        let execute_msg = ExecuteMsg::ExecuteMatch {
             ask_id: "ask_id".into(),
             bid_id: "no_bid_id".into(),
         };
@@ -1244,7 +1246,7 @@ mod tests {
         }
 
         // execute with sent_funds returns ContractError::ExecuteWithFunds
-        let execute_msg = ExecuteMsg::Execute {
+        let execute_msg = ExecuteMsg::ExecuteMatch {
             ask_id: "ask_id".into(),
             bid_id: "bid_id".into(),
         };

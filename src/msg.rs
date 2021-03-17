@@ -15,7 +15,7 @@ pub enum ExecuteMsg {
     CancelBid { id: String },
     CreateAsk { id: String, price: Vec<Coin> },
     CreateBid { id: String, asset: Vec<Coin> },
-    Execute { ask_id: String, bid_id: String },
+    ExecuteMatch { ask_id: String, bid_id: String },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
