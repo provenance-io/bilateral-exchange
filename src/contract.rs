@@ -250,6 +250,11 @@ fn execute_match(
     ask_id: String,
     bid_id: String,
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
+    // only the admin may execute matches
+    if info.sender != get_contract_info(deps.storage)?.admin {
+        return Err(ContractError::Unauthorized {});
+    }
+
     // return error if id is empty
     if ask_id.is_empty() | bid_id.is_empty() {
         return Err(ContractError::Unauthorized {});
@@ -346,7 +351,7 @@ mod tests {
     use cosmwasm_std::{CosmosMsg, Uint128};
     use provwasm_std::{NameMsgParams, ProvenanceMsg, ProvenanceMsgParams, ProvenanceRoute};
 
-    use crate::contract_info::ContractInfo;
+    use crate::contract_info::{ContractInfo, CONTRACT_TYPE, CONTRACT_VERSION};
     use crate::state::get_bid_storage_read;
 
     use super::*;
@@ -453,11 +458,14 @@ mod tests {
                         version: "2.0.0".to_string(),
                     })
                 );
-                let expected_contract_info = ContractInfo::new(
-                    HumanAddr("contract_admin".into()),
-                    "contract_name",
-                    "contract_bind_name",
-                );
+                let expected_contract_info = ContractInfo {
+                    admin: "contract_admin".into(),
+                    bind_name: "contract_bind_name".to_string(),
+                    contract_name: "contract_name".to_string(),
+                    contract_type: CONTRACT_TYPE.into(),
+                    contract_version: CONTRACT_VERSION.into(),
+                };
+
                 assert_eq!(init_response.attributes.len(), 2);
                 assert_eq!(
                     init_response.attributes[0],
@@ -1187,6 +1195,25 @@ mod tests {
         if let Err(error) = bid_storage.save(&bid_order.id.as_bytes(), &bid_order) {
             panic!("unexpected error: {:?}", error);
         };
+
+        // execute by non-admin ContractError::Unauthorized
+        let execute_msg = ExecuteMsg::ExecuteMatch {
+            ask_id: "ask_id".into(),
+            bid_id: "bid_id".into(),
+        };
+
+        let execute_response = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("user", &[]),
+            execute_msg,
+        );
+
+        match execute_response {
+            Err(ContractError::Unauthorized {}) => {}
+            Err(error) => panic!("unexpected error: {:?}", error),
+            Ok(_) => panic!("expected error, but execute_response ok"),
+        }
 
         // execute on mismatched ask order and bid order returns ContractError::AskBidMismatch
         let execute_msg = ExecuteMsg::ExecuteMatch {

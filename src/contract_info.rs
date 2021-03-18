@@ -6,30 +6,18 @@ use serde::{Deserialize, Serialize};
 use crate::error::ContractError;
 
 const NAMESPACE_CONTRACT_INFO: &str = "contract_info";
-const CONTRACT_TYPE: &str = "figure:smart-contracts.bilateral-exchange";
-const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const CONTRACT_TYPE: &str = "figure:smart-contracts.bilateral-exchange";
+pub const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub const CONTRACT_INFO: Item<ContractInfo> = Item::new(NAMESPACE_CONTRACT_INFO);
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ContractInfo {
-    admin: HumanAddr,
-    bind_name: String,
-    contract_type: String,
-    contract_name: String,
-    contract_version: String,
-}
-
-impl ContractInfo {
-    pub fn new<T: Into<String>>(admin: HumanAddr, name: T, bind_name: T) -> ContractInfo {
-        ContractInfo {
-            admin,
-            bind_name: bind_name.into(),
-            contract_type: CONTRACT_TYPE.into(),
-            contract_name: name.into(),
-            contract_version: CONTRACT_VERSION.into(),
-        }
-    }
+    pub admin: HumanAddr,
+    pub bind_name: String,
+    pub contract_name: String,
+    pub contract_type: String,
+    pub contract_version: String,
 }
 
 pub fn set_contract_info<T: Into<String>>(
