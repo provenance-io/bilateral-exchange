@@ -26,7 +26,4 @@ pub enum ContractError {
 
     #[error("Unauthorized")]
     Unauthorized {},
-
-    #[error("Uninitialized")]
-    Uninitialized {},
 }
