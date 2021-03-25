@@ -196,7 +196,7 @@ fn cancel_ask(
     }
 }
 
-// cancel ask entrypoint
+// cancel bid entrypoint
 fn cancel_bid(
     deps: DepsMut,
     _env: Env,
@@ -243,6 +243,7 @@ fn cancel_bid(
     }
 }
 
+// match and execute an ask and bid order
 fn execute_match(
     deps: DepsMut,
     _env: Env,
