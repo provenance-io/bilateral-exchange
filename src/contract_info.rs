@@ -20,21 +20,23 @@ pub struct ContractInfo {
     pub contract_version: String,
 }
 
-pub fn set_contract_info<T: Into<String>>(
-    store: &mut dyn Storage,
-    admin: HumanAddr,
-    bind_name: T,
-    contract_name: T,
-) -> Result<(), ContractError> {
-    let info = ContractInfo {
-        admin,
-        bind_name: bind_name.into(),
-        contract_name: contract_name.into(),
-        contract_type: CONTRACT_TYPE.into(),
-        contract_version: CONTRACT_VERSION.into(),
-    };
+impl ContractInfo {
+    pub fn new(admin: HumanAddr, bind_name: String, contract_name: String) -> ContractInfo {
+        ContractInfo {
+            admin,
+            bind_name,
+            contract_name,
+            contract_type: CONTRACT_TYPE.into(),
+            contract_version: CONTRACT_VERSION.into(),
+        }
+    }
+}
 
-    let result = CONTRACT_INFO.save(store, &info);
+pub fn set_contract_info(
+    store: &mut dyn Storage,
+    contract_info: &ContractInfo,
+) -> Result<(), ContractError> {
+    let result = CONTRACT_INFO.save(store, contract_info);
     result.map_err(ContractError::Std)
 }
 
@@ -47,7 +49,7 @@ mod tests {
     use provwasm_mocks::mock_dependencies;
 
     use crate::contract_info::{
-        get_contract_info, set_contract_info, CONTRACT_TYPE, CONTRACT_VERSION,
+        get_contract_info, set_contract_info, ContractInfo, CONTRACT_TYPE, CONTRACT_VERSION,
     };
     use cosmwasm_std::HumanAddr;
 
@@ -56,9 +58,11 @@ mod tests {
         let mut deps = mock_dependencies(&[]);
         let result = set_contract_info(
             &mut deps.storage,
-            HumanAddr::from("contract_admin"),
-            "contract_bind_name",
-            "contract_name",
+            &ContractInfo::new(
+                HumanAddr::from("contract_admin"),
+                "contract_bind_name".into(),
+                "contract_name".into(),
+            ),
         );
         match result {
             Ok(()) => {}

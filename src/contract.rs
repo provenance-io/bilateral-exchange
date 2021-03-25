@@ -3,7 +3,7 @@ use cosmwasm_std::{
 };
 use provwasm_std::{bind_name, NameBinding, ProvenanceMsg};
 
-use crate::contract_info::{get_contract_info, set_contract_info};
+use crate::contract_info::{get_contract_info, set_contract_info, ContractInfo};
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{
@@ -30,15 +30,15 @@ pub fn instantiate(
     }
 
     // set contract info
-    set_contract_info(
-        deps.storage,
-        info.sender,
-        msg.bind_name.clone(),
-        msg.contract_name.clone(),
-    )?;
+    let contract_info = ContractInfo::new(info.sender, msg.bind_name, msg.contract_name);
+    set_contract_info(deps.storage, &contract_info)?;
 
     // create name binding provenance message
-    let bind_name_msg = bind_name(msg.bind_name, env.contract.address, NameBinding::Restricted)?;
+    let bind_name_msg = bind_name(
+        contract_info.bind_name,
+        env.contract.address,
+        NameBinding::Restricted,
+    )?;
 
     // build response
     Ok(Response {
@@ -526,9 +526,11 @@ mod tests {
         let mut deps = mock_dependencies(&[]);
         if let Err(error) = set_contract_info(
             &mut deps.storage,
-            HumanAddr("contract_admin".into()),
-            "contract_bind_name",
-            "contract_name",
+            &ContractInfo::new(
+                HumanAddr("contract_admin".into()),
+                "contract_bind_name".into(),
+                "contract_name".into(),
+            ),
         ) {
             panic!("unexpected error: {:?}", error)
         }
@@ -589,9 +591,11 @@ mod tests {
         let mut deps = mock_dependencies(&[]);
         if let Err(error) = set_contract_info(
             &mut deps.storage,
-            HumanAddr("contract_admin".into()),
-            "contract_bind_name",
-            "contract_name",
+            &ContractInfo::new(
+                HumanAddr("contract_admin".into()),
+                "contract_bind_name".into(),
+                "contract_name".into(),
+            ),
         ) {
             panic!("unexpected error: {:?}", error)
         }
@@ -700,9 +704,11 @@ mod tests {
         let mut deps = mock_dependencies(&[]);
         if let Err(error) = set_contract_info(
             &mut deps.storage,
-            HumanAddr("contract_admin".into()),
-            "contract_bind_name",
-            "contract_name",
+            &ContractInfo::new(
+                HumanAddr("contract_admin".into()),
+                "contract_bind_name".into(),
+                "contract_name".into(),
+            ),
         ) {
             panic!("unexpected error: {:?}", error)
         }
@@ -763,9 +769,11 @@ mod tests {
         let mut deps = mock_dependencies(&[]);
         if let Err(error) = set_contract_info(
             &mut deps.storage,
-            HumanAddr("contract_admin".into()),
-            "contract_bind_name",
-            "contract_name",
+            &ContractInfo::new(
+                HumanAddr("contract_admin".into()),
+                "contract_bind_name".into(),
+                "contract_name".into(),
+            ),
         ) {
             panic!("unexpected error: {:?}", error)
         }
@@ -849,9 +857,11 @@ mod tests {
         let mut deps = mock_dependencies(&[]);
         if let Err(error) = set_contract_info(
             &mut deps.storage,
-            HumanAddr("contract_admin".into()),
-            "contract_bind_name",
-            "contract_name",
+            &ContractInfo::new(
+                HumanAddr("contract_admin".into()),
+                "contract_bind_name".into(),
+                "contract_name".into(),
+            ),
         ) {
             panic!("unexpected error: {:?}", error)
         }
@@ -983,9 +993,11 @@ mod tests {
         let mut deps = mock_dependencies(&[]);
         if let Err(error) = set_contract_info(
             &mut deps.storage,
-            HumanAddr("contract_admin".into()),
-            "contract_bind_name",
-            "contract_name",
+            &ContractInfo::new(
+                HumanAddr("contract_admin".into()),
+                "contract_bind_name".into(),
+                "contract_name".into(),
+            ),
         ) {
             panic!("unexpected error: {:?}", error)
         }
@@ -1086,9 +1098,11 @@ mod tests {
         let mut deps = mock_dependencies(&[]);
         if let Err(error) = set_contract_info(
             &mut deps.storage,
-            HumanAddr("contract_admin".into()),
-            "contract_bind_name",
-            "contract_name",
+            &ContractInfo::new(
+                HumanAddr("contract_admin".into()),
+                "contract_bind_name".into(),
+                "contract_name".into(),
+            ),
         ) {
             panic!("unexpected error: {:?}", error)
         }
@@ -1163,9 +1177,11 @@ mod tests {
         let mut deps = mock_dependencies(&[]);
         if let Err(error) = set_contract_info(
             &mut deps.storage,
-            HumanAddr("contract_admin".into()),
-            "contract_bind_name",
-            "contract_name",
+            &ContractInfo::new(
+                HumanAddr("contract_admin".into()),
+                "contract_bind_name".into(),
+                "contract_name".into(),
+            ),
         ) {
             panic!("unexpected error: {:?}", error)
         }
@@ -1298,9 +1314,11 @@ mod tests {
         let mut deps = mock_dependencies(&[]);
         if let Err(error) = set_contract_info(
             &mut deps.storage,
-            HumanAddr("contract_admin".into()),
-            "contract_bind_name",
-            "contract_name",
+            &ContractInfo::new(
+                HumanAddr("contract_admin".into()),
+                "contract_bind_name".into(),
+                "contract_name".into(),
+            ),
         ) {
             panic!("unexpected error: {:?}", error)
         }
