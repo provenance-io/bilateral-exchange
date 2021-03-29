@@ -38,4 +38,4 @@ thiserror = { version = "1.0.23" }
 
 [dev-dependencies]
 cosmwasm-schema = { version = "0.14.0-beta1" }
-provwasm-mocks = { version = "0.14.0", path = "../provwasm/packages/mocks" }
+provwasm-mocks = { version = "0.14.0-beta1" }
