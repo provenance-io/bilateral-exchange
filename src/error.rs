@@ -12,14 +12,14 @@ pub enum ContractError {
     #[error("Cannot send funds when executing match")]
     ExecuteWithFunds {},
 
-    #[error("Asset was not sent")]
-    MissingAskAsset,
+    #[error("Ask base was not sent")]
+    MissingAskBase,
 
     #[error("Missing field: {field:?}")]
     MissingField { field: String },
 
-    #[error("Price was not sent")]
-    MissingBidPrice,
+    #[error("Bid quote was not sent")]
+    MissingBidQuote,
 
     #[error("{0}")]
     Std(#[from] StdError),

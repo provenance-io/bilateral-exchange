@@ -50,13 +50,13 @@
           "type": "object",
           "required": [
             "id",
-            "price"
+            "quote"
           ],
           "properties": {
             "id": {
               "type": "string"
             },
-            "price": {
+            "quote": {
               "type": "array",
               "items": {
                 "$ref": "#/definitions/Coin"
@@ -75,11 +75,11 @@
         "create_bid": {
           "type": "object",
           "required": [
-            "asset",
+            "base",
             "id"
           ],
           "properties": {
-            "asset": {
+            "base": {
               "type": "array",
               "items": {
                 "$ref": "#/definitions/Coin"

@@ -13,8 +13,8 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     CancelAsk { id: String },
     CancelBid { id: String },
-    CreateAsk { id: String, price: Vec<Coin> },
-    CreateBid { id: String, asset: Vec<Coin> },
+    CreateAsk { id: String, quote: Vec<Coin> },
+    CreateBid { id: String, base: Vec<Coin> },
     ExecuteMatch { ask_id: String, bid_id: String },
 }
 
