@@ -3,13 +3,13 @@
   "title": "BidOrder",
   "type": "object",
   "required": [
-    "asset",
+    "base",
     "id",
     "owner",
-    "price"
+    "quote"
   ],
   "properties": {
-    "asset": {
+    "base": {
       "type": "array",
       "items": {
         "$ref": "#/definitions/Coin"
@@ -21,7 +21,7 @@
     "owner": {
       "$ref": "#/definitions/HumanAddr"
     },
-    "price": {
+    "quote": {
       "type": "array",
       "items": {
         "$ref": "#/definitions/Coin"

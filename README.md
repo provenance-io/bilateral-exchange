@@ -20,7 +20,9 @@ _NOTE: Address bech32 values and other params may vary._
     1. Accounts:
         - Asker
         - Buyer
-    1.
+    1. Markers:
+        - Asset
+        - Price
 
 0. Store the `bilateral-exchange` WASM:
     ```bash
@@ -37,6 +39,7 @@ _NOTE: Address bech32 values and other params may vary._
         --yes \
         --testnet | jq
     ```
+   
 0. Instantiate the contract, binding the name `bilateral-ex.sc.pb` to the contract address:
     ```bash
     provenanced tx wasm instantiate 1 \
@@ -144,6 +147,7 @@ provenanced query wasm contract-state smart tp18vd8fpwxzck93qlwghaj6arh4p7c5n89x
   --ascii \
   --testnet
 ```
+
 Query for bid order information:
 ```bash
 provenanced query wasm contract-state smart tp18vd8fpwxzck93qlwghaj6arh4p7c5n89x8kskz \

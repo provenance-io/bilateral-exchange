@@ -27,7 +27,8 @@ schema:
 
 .PHONY: optimize
 optimize:
-	@docker run --rm -v $(CURDIR):/code \
+	@docker run --rm -v $(CURDIR):/code:Z \
+		-v $(CURDIR)/../provwasm:/provwasm:Z \
 		--mount type=volume,source=bilateral-exchange_cache,target=/code/target \
 		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
 		cosmwasm/rust-optimizer:0.10.7

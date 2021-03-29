@@ -6,47 +6,37 @@ use serde::{Deserialize, Serialize};
 use crate::error::ContractError;
 
 const NAMESPACE_CONTRACT_INFO: &str = "contract_info";
-const CONTRACT_TYPE: &str = "figure:smart-contracts.bilateral-exchange";
-const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const CONTRACT_TYPE: &str = "figure:smart-contracts.bilateral-exchange";
+pub const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub const CONTRACT_INFO: Item<ContractInfo> = Item::new(NAMESPACE_CONTRACT_INFO);
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ContractInfo {
-    admin: HumanAddr,
-    bind_name: String,
-    contract_type: String,
-    contract_name: String,
-    contract_version: String,
+    pub admin: HumanAddr,
+    pub bind_name: String,
+    pub contract_name: String,
+    pub contract_type: String,
+    pub contract_version: String,
 }
 
 impl ContractInfo {
-    pub fn new<T: Into<String>>(admin: HumanAddr, name: T, bind_name: T) -> ContractInfo {
+    pub fn new(admin: HumanAddr, bind_name: String, contract_name: String) -> ContractInfo {
         ContractInfo {
             admin,
-            bind_name: bind_name.into(),
+            bind_name,
+            contract_name,
             contract_type: CONTRACT_TYPE.into(),
-            contract_name: name.into(),
             contract_version: CONTRACT_VERSION.into(),
         }
     }
 }
 
-pub fn set_contract_info<T: Into<String>>(
+pub fn set_contract_info(
     store: &mut dyn Storage,
-    admin: HumanAddr,
-    bind_name: T,
-    contract_name: T,
+    contract_info: &ContractInfo,
 ) -> Result<(), ContractError> {
-    let info = ContractInfo {
-        admin,
-        bind_name: bind_name.into(),
-        contract_name: contract_name.into(),
-        contract_type: CONTRACT_TYPE.into(),
-        contract_version: CONTRACT_VERSION.into(),
-    };
-
-    let result = CONTRACT_INFO.save(store, &info);
+    let result = CONTRACT_INFO.save(store, contract_info);
     result.map_err(ContractError::Std)
 }
 
@@ -59,7 +49,7 @@ mod tests {
     use provwasm_mocks::mock_dependencies;
 
     use crate::contract_info::{
-        get_contract_info, set_contract_info, CONTRACT_TYPE, CONTRACT_VERSION,
+        get_contract_info, set_contract_info, ContractInfo, CONTRACT_TYPE, CONTRACT_VERSION,
     };
     use cosmwasm_std::HumanAddr;
 
@@ -68,9 +58,11 @@ mod tests {
         let mut deps = mock_dependencies(&[]);
         let result = set_contract_info(
             &mut deps.storage,
-            HumanAddr::from("contract_admin"),
-            "contract_bind_name",
-            "contract_name",
+            &ContractInfo::new(
+                HumanAddr::from("contract_admin"),
+                "contract_bind_name".into(),
+                "contract_name".into(),
+            ),
         );
         match result {
             Ok(()) => {}
