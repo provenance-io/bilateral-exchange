@@ -17,7 +17,7 @@ dependencies = [
  "cosmwasm-storage",
  "cw-storage-plus",
  "provwasm-mocks",
- "provwasm-std",
+ "provwasm-std 0.14.0-beta1",
  "schemars",
  "serde",
  "thiserror",
@@ -336,7 +336,18 @@ name = "provwasm-mocks"
 version = "0.14.0"
 dependencies = [
  "cosmwasm-std",
- "provwasm-std",
+ "provwasm-std 0.14.0",
+ "schemars",
+ "serde",
+]
+
+[[package]]
+name = "provwasm-std"
+version = "0.14.0-beta1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0153239f5abcc3f8356a81a7b1c8972e76f59db3202098f0e88ef46fd43e1a9d"
+dependencies = [
+ "cosmwasm-std",
  "schemars",
  "serde",
 ]

@@ -31,7 +31,7 @@ overflow-checks = true
 cosmwasm-std = { version = "0.14.0-beta1", features = ["staking"] }
 cosmwasm-storage = { version = "0.14.0-beta1" }
 cw-storage-plus = { version = "0.6.0-alpha1" }
-provwasm-std = { version = "0.14.0", path = "../provwasm/packages/bindings" }
+provwasm-std = { version = "0.14.0-beta1" }
 schemars = "0.7"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.23" }
