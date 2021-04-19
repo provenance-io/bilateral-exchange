@@ -1,5 +1,8 @@
+#!/usr/bin/make -f
+CONTAINER_RUNTIME := $(shell which podman 2>/dev/null || shell which docker 2>/dev/null)
+
 .PHONY: all
-all: fmt lint build test schema
+all: fmt lint test schema optimize
 
 .PHONY: clean
 clean:
@@ -19,18 +22,18 @@ build:
 
 .PHONY: test
 test:
-	@RUST_BACKTRACE=1 cargo unit-test
+	@cargo test --verbose
 
 .PHONY: schema
 schema:
-	@cargo schema
+	@cargo run --example schema
 
 .PHONY: optimize
 optimize:
-	@docker run --rm -v $(CURDIR):/code:Z \
-		--mount type=volume,source=bilateral-exchange_cache,target=/code/target \
+	$(CONTAINER_RUNTIME) run --rm -v $(CURDIR):/code:Z \
+		--mount type=volume,source=bilateral_exchange_cache,target=/code/target \
 		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-		cosmwasm/rust-optimizer:0.10.7
+		cosmwasm/rust-optimizer:0.10.9
 
 .PHONY: install
 install: optimize
