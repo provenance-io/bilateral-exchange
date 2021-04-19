@@ -18,7 +18,7 @@ make && make install
 git clone git@github.com:provenance-io/provenance.git
 git clone git@github.com:provenance-io/bilateral-exchange.git
 
-cp bilateral-exchange/bilateral.fish bilateral-exchange/create-base.fish provenance
+cp bilateral-exchange/examples/bilateral.fish bilateral-exchange/examples/create-base.fish provenance
 cd bilateral-exchange
 make
 cd ../provenance
