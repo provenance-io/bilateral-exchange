@@ -21,8 +21,8 @@ _NOTE: Address bech32 values and other params may vary._
         - Asker
         - Buyer
     1. Markers:
-        - Asset
-        - Price
+        - Base
+        - Quote
 
 0. Store the `bilateral-exchange` WASM:
     ```bash
@@ -43,7 +43,7 @@ _NOTE: Address bech32 values and other params may vary._
 0. Instantiate the contract, binding the name `bilateral-ex.sc.pb` to the contract address:
     ```bash
     provenanced tx wasm instantiate 1 \
-        '{"bind_name":"bilateral-ex.sc.pb","contract_name":"bilateral-ex"}' \
+        '{"bind_name":"bilateral-ex.sc","contract_name":"bilateral-ex"}' \
         --admin (provenanced keys show -a node0 --home build/node0 --keyring-backend test --testnet) \
         --from node0 \
         --keyring-backend test \
@@ -158,5 +158,5 @@ provenanced query wasm contract-state smart tp18vd8fpwxzck93qlwghaj6arh4p7c5n89x
 
 ```bash
 provenanced query wasm contract-state smart \
-    tp18vd8fpwxzck93qlwghaj6arh4p7c5n89x8kskz '{"query_state":{}}' --testnet
+    tp18vd8fpwxzck93qlwghaj6arh4p7c5n89x8kskz '{"get_contract_info":{}}' --testnet
 ```

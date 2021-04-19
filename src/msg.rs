@@ -23,5 +23,5 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     GetAsk { id: String },
     GetBid { id: String },
-    GetContractInfo,
+    GetContractInfo {},
 }

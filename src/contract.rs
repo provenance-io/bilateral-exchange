@@ -340,7 +340,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             let bid_storage_read = get_bid_storage_read(deps.storage);
             return to_binary(&bid_storage_read.load(id.as_bytes())?);
         }
-        QueryMsg::GetContractInfo => to_binary(&get_contract_info(deps.storage)?),
+        QueryMsg::GetContractInfo {} => to_binary(&get_contract_info(deps.storage)?),
     }
 }
 
@@ -1352,7 +1352,7 @@ mod tests {
 
         // query for contract_info
         let query_contract_info_response =
-            query(deps.as_ref(), mock_env(), QueryMsg::GetContractInfo);
+            query(deps.as_ref(), mock_env(), QueryMsg::GetContractInfo {});
 
         match query_contract_info_response {
             Ok(contract_info) => {
