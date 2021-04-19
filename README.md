@@ -89,7 +89,7 @@ _NOTE: Address bech32 values and other params may vary._
     ```bash
     provenanced tx wasm execute \
         tp18vd8fpwxzck93qlwghaj6arh4p7c5n89x8kskz \
-        '{"create_bid":{"id":"bid_id", "asset":[{"amount":"M1_AMT","denom":"M1_DENOM"}]}}' \
+        '{"create_bid":{"id":"bid_id", "asset":[{"amount":"M2_AMT","denom":"M2_DENOM"}]}}' \
         --amount M1 \
         --from (provenanced keys show -a bidder --home build/node0 --keyring-backend test --testnet) \
         --keyring-backend test \
