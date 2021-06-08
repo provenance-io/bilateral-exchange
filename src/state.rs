@@ -1,4 +1,4 @@
-use cosmwasm_std::{Coin, HumanAddr, Storage};
+use cosmwasm_std::{Addr, Coin, Storage};
 use cosmwasm_storage::{bucket, bucket_read, Bucket, ReadonlyBucket};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -10,7 +10,7 @@ pub static NAMESPACE_ORDER_BID: &[u8] = b"bid";
 pub struct AskOrder {
     pub base: Vec<Coin>,
     pub id: String,
-    pub owner: HumanAddr,
+    pub owner: Addr,
     pub quote: Vec<Coin>,
 }
 
@@ -18,7 +18,7 @@ pub struct AskOrder {
 pub struct BidOrder {
     pub base: Vec<Coin>,
     pub id: String,
-    pub owner: HumanAddr,
+    pub owner: Addr,
     pub quote: Vec<Coin>,
 }
 

@@ -183,7 +183,7 @@ fn cancel_ask(
             let response = Response {
                 submessages: vec![],
                 messages: vec![BankMsg::Send {
-                    to_address: stored_ask_order.owner,
+                    to_address: stored_ask_order.owner.to_string(),
                     amount: stored_ask_order.base,
                 }
                 .into()],
@@ -229,7 +229,7 @@ fn cancel_bid(
             let response = Response {
                 submessages: vec![],
                 messages: vec![BankMsg::Send {
-                    to_address: stored_bid_order.owner,
+                    to_address: stored_bid_order.owner.to_string(),
                     amount: stored_bid_order.quote,
                 }
                 .into()],
@@ -290,12 +290,12 @@ fn execute_match(
         submessages: vec![],
         messages: vec![
             BankMsg::Send {
-                to_address: ask_order.owner,
+                to_address: ask_order.owner.to_string(),
                 amount: ask_order.quote,
             }
             .into(),
             BankMsg::Send {
-                to_address: bid_order.owner,
+                to_address: bid_order.owner.to_string(),
                 amount: bid_order.base,
             }
             .into(),
@@ -348,7 +348,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 #[cfg(test)]
 mod tests {
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MOCK_CONTRACT_ADDR};
-    use cosmwasm_std::{coin, coins, BankMsg, HumanAddr};
+    use cosmwasm_std::{coin, coins, Addr, BankMsg};
     use cosmwasm_std::{CosmosMsg, Uint128};
     use provwasm_std::{NameMsgParams, ProvenanceMsg, ProvenanceMsgParams, ProvenanceRoute};
 
@@ -365,13 +365,13 @@ mod tests {
                 &AskOrder {
                     base: coins(100, "base_1"),
                     id: "ask_id".to_string(),
-                    owner: HumanAddr("asker".into()),
+                    owner: Addr::unchecked("asker"),
                     quote: coins(100, "quote_1"),
                 },
                 &BidOrder {
                     base: coins(100, "base_1"),
                     id: "bid_id".to_string(),
-                    owner: HumanAddr("bidder".into()),
+                    owner: Addr::unchecked("bidder"),
                     quote: coins(100, "quote_1"),
                 }
             ),
@@ -382,13 +382,13 @@ mod tests {
                 &AskOrder {
                     base: vec![coin(100, "base_1"), coin(200, "base_2")],
                     id: "ask_id".to_string(),
-                    owner: HumanAddr("asker".into()),
+                    owner: Addr::unchecked("asker"),
                     quote: coins(100, "quote_1"),
                 },
                 &BidOrder {
                     base: vec![coin(200, "base_2"), coin(100, "base_1")],
                     id: "bid_id".to_string(),
-                    owner: HumanAddr("bidder".into()),
+                    owner: Addr::unchecked("bidder"),
                     quote: coins(100, "quote_1"),
                 }
             ),
@@ -399,13 +399,13 @@ mod tests {
                 &AskOrder {
                     base: coins(100, "base_1"),
                     id: "ask_id".to_string(),
-                    owner: HumanAddr("asker".into()),
+                    owner: Addr::unchecked("asker"),
                     quote: coins(100, "quote_1"),
                 },
                 &BidOrder {
                     base: coins(100, "base_2"),
                     id: "bid_id".to_string(),
-                    owner: HumanAddr("bidder".into()),
+                    owner: Addr::unchecked("bidder"),
                     quote: coins(100, "quote_1"),
                 }
             ),
@@ -416,13 +416,13 @@ mod tests {
                 &AskOrder {
                     base: coins(100, "base_1"),
                     id: "ask_id".to_string(),
-                    owner: HumanAddr("asker".into()),
+                    owner: Addr::unchecked("asker"),
                     quote: coins(100, "quote_1"),
                 },
                 &BidOrder {
                     base: coins(100, "base_1"),
                     id: "bid_id".to_string(),
-                    owner: HumanAddr("bidder".into()),
+                    owner: Addr::unchecked("bidder"),
                     quote: coins(100, "quote_2"),
                 }
             ),
@@ -453,14 +453,14 @@ mod tests {
                         route: ProvenanceRoute::Name,
                         params: ProvenanceMsgParams::Name(NameMsgParams::BindName {
                             name: init_msg.bind_name,
-                            address: MOCK_CONTRACT_ADDR.into(),
+                            address: Addr::unchecked(MOCK_CONTRACT_ADDR),
                             restrict: true
                         }),
                         version: "2.0.0".to_string(),
                     })
                 );
                 let expected_contract_info = ContractInfo {
-                    admin: "contract_admin".into(),
+                    admin: Addr::unchecked("contract_admin"),
                     bind_name: "contract_bind_name".to_string(),
                     contract_name: "contract_name".to_string(),
                     contract_type: CONTRACT_TYPE.into(),
@@ -528,7 +528,7 @@ mod tests {
         if let Err(error) = set_contract_info(
             &mut deps.storage,
             &ContractInfo::new(
-                HumanAddr("contract_admin".into()),
+                Addr::unchecked("contract_admin"),
                 "contract_bind_name".into(),
                 "contract_name".into(),
             ),
@@ -593,7 +593,7 @@ mod tests {
         if let Err(error) = set_contract_info(
             &mut deps.storage,
             &ContractInfo::new(
-                HumanAddr("contract_admin".into()),
+                Addr::unchecked("contract_admin"),
                 "contract_bind_name".into(),
                 "contract_name".into(),
             ),
@@ -706,7 +706,7 @@ mod tests {
         if let Err(error) = set_contract_info(
             &mut deps.storage,
             &ContractInfo::new(
-                HumanAddr("contract_admin".into()),
+                Addr::unchecked("contract_admin"),
                 "contract_bind_name".into(),
                 "contract_name".into(),
             ),
@@ -771,7 +771,7 @@ mod tests {
         if let Err(error) = set_contract_info(
             &mut deps.storage,
             &ContractInfo::new(
-                HumanAddr("contract_admin".into()),
+                Addr::unchecked("contract_admin"),
                 "contract_bind_name".into(),
                 "contract_name".into(),
             ),
@@ -859,7 +859,7 @@ mod tests {
         if let Err(error) = set_contract_info(
             &mut deps.storage,
             &ContractInfo::new(
-                HumanAddr("contract_admin".into()),
+                Addr::unchecked("contract_admin"),
                 "contract_bind_name".into(),
                 "contract_name".into(),
             ),
@@ -911,7 +911,7 @@ mod tests {
                 assert_eq!(
                     cancel_ask_response.messages[0],
                     CosmosMsg::Bank(BankMsg::Send {
-                        to_address: asker_info.sender,
+                        to_address: asker_info.sender.to_string(),
                         amount: coins(200, "base_1"),
                     })
                 );
@@ -973,7 +973,7 @@ mod tests {
                 assert_eq!(
                     cancel_bid_response.messages[0],
                     CosmosMsg::Bank(BankMsg::Send {
-                        to_address: bidder_info.sender,
+                        to_address: bidder_info.sender.to_string(),
                         amount: coins(100, "quote_1"),
                     })
                 );
@@ -995,7 +995,7 @@ mod tests {
         if let Err(error) = set_contract_info(
             &mut deps.storage,
             &ContractInfo::new(
-                HumanAddr("contract_admin".into()),
+                Addr::unchecked("contract_admin"),
                 "contract_bind_name".into(),
                 "contract_name".into(),
             ),
@@ -1052,7 +1052,7 @@ mod tests {
             &AskOrder {
                 base: coins(200, "base_1"),
                 id: "ask_id".into(),
-                owner: "".into(),
+                owner: Addr::unchecked(""),
                 quote: coins(100, "quote_1"),
             },
         ) {
@@ -1100,7 +1100,7 @@ mod tests {
         if let Err(error) = set_contract_info(
             &mut deps.storage,
             &ContractInfo::new(
-                HumanAddr("contract_admin".into()),
+                Addr::unchecked("contract_admin"),
                 "contract_bind_name".into(),
                 "contract_name".into(),
             ),
@@ -1112,7 +1112,7 @@ mod tests {
         let ask_order = AskOrder {
             base: vec![coin(100, "base_1"), coin(200, "base_2")],
             id: "ask_id".into(),
-            owner: HumanAddr("asker".into()),
+            owner: Addr::unchecked("asker"),
             quote: coins(200, "quote_1"),
         };
 
@@ -1125,7 +1125,7 @@ mod tests {
         let bid_order = BidOrder {
             base: vec![coin(200, "base_2"), coin(100, "base_1")],
             id: "bid_id".to_string(),
-            owner: HumanAddr("bidder".into()),
+            owner: Addr::unchecked("bidder"),
             quote: coins(200, "quote_1"),
         };
 
@@ -1157,14 +1157,14 @@ mod tests {
                 assert_eq!(
                     execute_response.messages[0],
                     CosmosMsg::Bank(BankMsg::Send {
-                        to_address: ask_order.owner,
+                        to_address: ask_order.owner.to_string(),
                         amount: ask_order.quote,
                     })
                 );
                 assert_eq!(
                     execute_response.messages[1],
                     CosmosMsg::Bank(BankMsg::Send {
-                        to_address: bid_order.owner,
+                        to_address: bid_order.owner.to_string(),
                         amount: bid_order.base,
                     })
                 );
@@ -1179,7 +1179,7 @@ mod tests {
         if let Err(error) = set_contract_info(
             &mut deps.storage,
             &ContractInfo::new(
-                HumanAddr("contract_admin".into()),
+                Addr::unchecked("contract_admin"),
                 "contract_bind_name".into(),
                 "contract_name".into(),
             ),
@@ -1191,7 +1191,7 @@ mod tests {
         let ask_order = AskOrder {
             base: coins(200, "base_1"),
             id: "ask_id".into(),
-            owner: HumanAddr("asker".into()),
+            owner: Addr::unchecked("asker"),
             quote: coins(100, "quote_1"),
         };
 
@@ -1204,7 +1204,7 @@ mod tests {
         let bid_order = BidOrder {
             base: coins(100, "base_1"),
             id: "bid_id".into(),
-            owner: HumanAddr("bidder".into()),
+            owner: Addr::unchecked("bidder"),
             quote: coins(100, "quote_1"),
         };
 
@@ -1316,7 +1316,7 @@ mod tests {
         if let Err(error) = set_contract_info(
             &mut deps.storage,
             &ContractInfo::new(
-                HumanAddr("contract_admin".into()),
+                Addr::unchecked("contract_admin"),
                 "contract_bind_name".into(),
                 "contract_name".into(),
             ),
@@ -1328,7 +1328,7 @@ mod tests {
         let ask_order = AskOrder {
             base: coins(200, "base_1"),
             id: "ask_id".into(),
-            owner: HumanAddr("asker".into()),
+            owner: Addr::unchecked("asker"),
             quote: coins(100, "quote_1"),
         };
 
@@ -1341,7 +1341,7 @@ mod tests {
         let bid_order = BidOrder {
             base: coins(100, "base_1"),
             id: "bid_id".into(),
-            owner: HumanAddr("bidder".into()),
+            owner: Addr::unchecked("bidder"),
             quote: coins(100, "quote_1"),
         };
 

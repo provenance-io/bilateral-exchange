@@ -1,4 +1,4 @@
-use cosmwasm_std::{HumanAddr, StdResult, Storage};
+use cosmwasm_std::{Addr, StdResult, Storage};
 use cw_storage_plus::Item;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -13,7 +13,7 @@ pub const CONTRACT_INFO: Item<ContractInfo> = Item::new(NAMESPACE_CONTRACT_INFO)
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct ContractInfo {
-    pub admin: HumanAddr,
+    pub admin: Addr,
     pub bind_name: String,
     pub contract_name: String,
     pub contract_type: String,
@@ -21,7 +21,7 @@ pub struct ContractInfo {
 }
 
 impl ContractInfo {
-    pub fn new(admin: HumanAddr, bind_name: String, contract_name: String) -> ContractInfo {
+    pub fn new(admin: Addr, bind_name: String, contract_name: String) -> ContractInfo {
         ContractInfo {
             admin,
             bind_name,
@@ -51,7 +51,7 @@ mod tests {
     use crate::contract_info::{
         get_contract_info, set_contract_info, ContractInfo, CONTRACT_TYPE, CONTRACT_VERSION,
     };
-    use cosmwasm_std::HumanAddr;
+    use cosmwasm_std::Addr;
 
     #[test]
     pub fn set_contract_info_with_valid_data() {
@@ -59,7 +59,7 @@ mod tests {
         let result = set_contract_info(
             &mut deps.storage,
             &ContractInfo::new(
-                HumanAddr::from("contract_admin"),
+                Addr::unchecked("contract_admin"),
                 "contract_bind_name".into(),
                 "contract_name".into(),
             ),
@@ -72,7 +72,7 @@ mod tests {
         let contract_info = get_contract_info(&deps.storage);
         match contract_info {
             Ok(contract_info) => {
-                assert_eq!(contract_info.admin, HumanAddr::from("contract_admin"));
+                assert_eq!(contract_info.admin, Addr::unchecked("contract_admin"));
                 assert_eq!(contract_info.bind_name, "contract_bind_name");
                 assert_eq!(contract_info.contract_name, "contract_name");
                 assert_eq!(contract_info.contract_type, CONTRACT_TYPE);
