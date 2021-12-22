@@ -1,5 +1,6 @@
 use cosmwasm_std::{
     attr, to_binary, BankMsg, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    Timestamp,
 };
 use provwasm_std::{bind_name, NameBinding, ProvenanceMsg};
 
@@ -61,7 +62,11 @@ pub fn execute(
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     match msg {
         ExecuteMsg::CreateAsk { id, quote } => create_ask(deps, info, id, quote),
-        ExecuteMsg::CreateBid { id, base } => create_bid(deps, info, id, base),
+        ExecuteMsg::CreateBid {
+            id,
+            base,
+            effective_time,
+        } => create_bid(deps, info, id, base, effective_time),
         ExecuteMsg::CancelAsk { id } => cancel_ask(deps, env, info, id),
         ExecuteMsg::CancelBid { id } => cancel_bid(deps, env, info, id),
         ExecuteMsg::ExecuteMatch { ask_id, bid_id } => {
@@ -111,6 +116,7 @@ fn create_bid(
     info: MessageInfo,
     id: String,
     base: Vec<Coin>,
+    effective_time: Option<Timestamp>,
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     if base.is_empty() {
         return Err(ContractError::MissingField {
@@ -127,10 +133,11 @@ fn create_bid(
     let mut bid_storage = get_bid_storage(deps.storage);
 
     let bid_order = BidOrder {
-        quote: info.funds,
+        base,
+        effective_time,
         id,
         owner: info.sender,
-        base,
+        quote: info.funds,
     };
 
     bid_storage.save(bid_order.id.as_bytes(), &bid_order)?;
@@ -344,6 +351,7 @@ mod tests {
                 },
                 &BidOrder {
                     base: coins(100, "base_1"),
+                    effective_time: Some(Timestamp::default()),
                     id: "bid_id".to_string(),
                     owner: Addr::unchecked("bidder"),
                     quote: coins(100, "quote_1"),
@@ -361,6 +369,7 @@ mod tests {
                 },
                 &BidOrder {
                     base: vec![coin(200, "base_2"), coin(100, "base_1")],
+                    effective_time: Some(Timestamp::default()),
                     id: "bid_id".to_string(),
                     owner: Addr::unchecked("bidder"),
                     quote: coins(100, "quote_1"),
@@ -378,6 +387,7 @@ mod tests {
                 },
                 &BidOrder {
                     base: coins(100, "base_2"),
+                    effective_time: Some(Timestamp::default()),
                     id: "bid_id".to_string(),
                     owner: Addr::unchecked("bidder"),
                     quote: coins(100, "quote_1"),
@@ -395,6 +405,7 @@ mod tests {
                 },
                 &BidOrder {
                     base: coins(100, "base_1"),
+                    effective_time: Some(Timestamp::default()),
                     id: "bid_id".to_string(),
                     owner: Addr::unchecked("bidder"),
                     quote: coins(100, "quote_2"),
@@ -692,6 +703,7 @@ mod tests {
         let create_bid_msg = ExecuteMsg::CreateBid {
             id: "bid_id".into(),
             base: coins(100, "base_1"),
+            effective_time: Some(Timestamp::default()),
         };
 
         let bidder_info = mock_info("bidder", &coins(2, "mark_2"));
@@ -717,13 +729,19 @@ mod tests {
 
         // verify bid order stored
         let bid_storage = get_bid_storage_read(&deps.storage);
-        if let ExecuteMsg::CreateBid { id, base } = create_bid_msg {
+        if let ExecuteMsg::CreateBid {
+            id,
+            base,
+            effective_time,
+        } = create_bid_msg
+        {
             match bid_storage.load("bid_id".to_string().as_bytes()) {
                 Ok(stored_order) => {
                     assert_eq!(
                         stored_order,
                         BidOrder {
                             base,
+                            effective_time,
                             id,
                             owner: bidder_info.sender,
                             quote: bidder_info.funds,
@@ -757,6 +775,7 @@ mod tests {
         let create_bid_msg = ExecuteMsg::CreateBid {
             id: "".into(),
             base: coins(100, "base_1"),
+            effective_time: Some(Timestamp::default()),
         };
 
         // execute create bid
@@ -782,6 +801,7 @@ mod tests {
         let create_bid_msg = ExecuteMsg::CreateBid {
             id: "id".into(),
             base: vec![],
+            effective_time: Some(Timestamp::default()),
         };
 
         // execute create bid
@@ -807,6 +827,7 @@ mod tests {
         let create_bid_msg = ExecuteMsg::CreateBid {
             id: "id".into(),
             base: coins(100, "base_1"),
+            effective_time: Some(Timestamp::default()),
         };
 
         // execute create bid
@@ -908,6 +929,7 @@ mod tests {
                 denom: "base_1".into(),
                 amount: Uint128::new(200),
             }],
+            effective_time: Some(Timestamp::default()),
         };
 
         // execute create bid
@@ -1098,6 +1120,7 @@ mod tests {
         // store valid bid order
         let bid_order = BidOrder {
             base: vec![coin(200, "base_2"), coin(100, "base_1")],
+            effective_time: Some(Timestamp::default()),
             id: "bid_id".to_string(),
             owner: Addr::unchecked("bidder"),
             quote: coins(200, "quote_1"),
@@ -1177,6 +1200,7 @@ mod tests {
         // store valid bid order
         let bid_order = BidOrder {
             base: coins(100, "base_1"),
+            effective_time: Some(Timestamp::default()),
             id: "bid_id".into(),
             owner: Addr::unchecked("bidder"),
             quote: coins(100, "quote_1"),
@@ -1314,6 +1338,7 @@ mod tests {
         // store valid bid order
         let bid_order = BidOrder {
             base: coins(100, "base_1"),
+            effective_time: Some(Timestamp::default()),
             id: "bid_id".into(),
             owner: Addr::unchecked("bidder"),
             quote: coins(100, "quote_1"),
