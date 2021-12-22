@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::ContractError;
 
 const NAMESPACE_CONTRACT_INFO: &str = "contract_info";
-pub const CONTRACT_TYPE: &str = "figure:smart-contracts.bilateral-exchange";
+pub const CONTRACT_TYPE: &str = env!("CARGO_CRATE_NAME");
 pub const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub const CONTRACT_INFO: Item<ContractInfo> = Item::new(NAMESPACE_CONTRACT_INFO);

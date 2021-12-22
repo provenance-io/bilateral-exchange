@@ -41,18 +41,15 @@ pub fn instantiate(
     )?;
 
     // build response
-    Ok(Response {
-        submessages: vec![],
-        messages: vec![bind_name_msg],
-        attributes: vec![
+    Ok(Response::new()
+        .add_messages(vec![bind_name_msg])
+        .add_attributes(vec![
             attr(
                 "contract_info",
                 format!("{:?}", get_contract_info(deps.storage)?),
             ),
             attr("action", "init"),
-        ],
-        data: None,
-    })
+        ]))
 }
 
 // smart contract execute entrypoint
@@ -101,14 +98,11 @@ fn create_ask(
         quote,
     };
 
-    ask_storage.save(&ask_order.id.as_bytes(), &ask_order)?;
+    ask_storage.save(ask_order.id.as_bytes(), &ask_order)?;
 
-    Ok(Response {
-        submessages: vec![],
-        messages: vec![],
-        attributes: vec![attr("action", "create_ask")],
-        data: Some(to_binary(&ask_order)?),
-    })
+    Ok(Response::new()
+        .add_attributes(vec![attr("action", "create_ask")])
+        .set_data(to_binary(&ask_order)?))
 }
 
 // create bid entrypoint
@@ -139,14 +133,11 @@ fn create_bid(
         base,
     };
 
-    bid_storage.save(&bid_order.id.as_bytes(), &bid_order)?;
+    bid_storage.save(bid_order.id.as_bytes(), &bid_order)?;
 
-    Ok(Response {
-        submessages: vec![],
-        messages: vec![],
-        attributes: vec![attr("action", "create_bid")],
-        data: Some(to_binary(&bid_order)?),
-    })
+    Ok(Response::new()
+        .add_attributes(vec![attr("action", "create_bid")])
+        .set_data(to_binary(&bid_order)?))
 }
 
 // cancel ask entrypoint
@@ -180,18 +171,12 @@ fn cancel_ask(
             ask_storage.remove(id.as_bytes());
 
             // 'send base back to owner' message
-            let response = Response {
-                submessages: vec![],
-                messages: vec![BankMsg::Send {
+            Ok(Response::new()
+                .add_message(BankMsg::Send {
                     to_address: stored_ask_order.owner.to_string(),
                     amount: stored_ask_order.base,
-                }
-                .into()],
-                attributes: vec![attr("action", "cancel_ask")],
-                data: None,
-            };
-
-            Ok(response)
+                })
+                .add_attributes(vec![attr("action", "cancel_ask")]))
         }
     }
 }
@@ -226,18 +211,12 @@ fn cancel_bid(
             bid_storage.remove(id.as_bytes());
 
             // 'send quote back to owner' message
-            let response = Response {
-                submessages: vec![],
-                messages: vec![BankMsg::Send {
+            Ok(Response::new()
+                .add_message(BankMsg::Send {
                     to_address: stored_bid_order.owner.to_string(),
                     amount: stored_bid_order.quote,
-                }
-                .into()],
-                attributes: vec![attr("action", "cancel_bid")],
-                data: None,
-            };
-
-            Ok(response)
+                })
+                .add_attributes(vec![attr("action", "cancel_bid")]))
         }
         Err(_) => Err(ContractError::Unauthorized {}),
     }
@@ -286,23 +265,18 @@ fn execute_match(
     }
 
     // 'send quote to asker' and 'send base to bidder' messages
-    let response = Response {
-        submessages: vec![],
-        messages: vec![
+    let response = Response::new()
+        .add_messages(vec![
             BankMsg::Send {
                 to_address: ask_order.owner.to_string(),
                 amount: ask_order.quote,
-            }
-            .into(),
+            },
             BankMsg::Send {
                 to_address: bid_order.owner.to_string(),
                 amount: bid_order.base,
-            }
-            .into(),
-        ],
-        attributes: vec![attr("action", "execute")],
-        data: None,
-    };
+            },
+        ])
+        .add_attributes(vec![attr("action", "execute")]);
 
     // finally remove the orders from storage
     get_ask_storage(deps.storage).remove(ask_id.as_bytes());
@@ -448,7 +422,7 @@ mod tests {
             Ok(init_response) => {
                 assert_eq!(init_response.messages.len(), 1);
                 assert_eq!(
-                    init_response.messages[0],
+                    init_response.messages[0].msg,
                     CosmosMsg::Custom(ProvenanceMsg {
                         route: ProvenanceRoute::Name,
                         params: ProvenanceMsgParams::Name(NameMsgParams::BindName {
@@ -909,7 +883,7 @@ mod tests {
                 );
                 assert_eq!(cancel_ask_response.messages.len(), 1);
                 assert_eq!(
-                    cancel_ask_response.messages[0],
+                    cancel_ask_response.messages[0].msg,
                     CosmosMsg::Bank(BankMsg::Send {
                         to_address: asker_info.sender.to_string(),
                         amount: coins(200, "base_1"),
@@ -932,7 +906,7 @@ mod tests {
             id: "bid_id".into(),
             base: vec![Coin {
                 denom: "base_1".into(),
-                amount: Uint128(200),
+                amount: Uint128::new(200),
             }],
         };
 
@@ -971,7 +945,7 @@ mod tests {
                 );
                 assert_eq!(cancel_bid_response.messages.len(), 1);
                 assert_eq!(
-                    cancel_bid_response.messages[0],
+                    cancel_bid_response.messages[0].msg,
                     CosmosMsg::Bank(BankMsg::Send {
                         to_address: bidder_info.sender.to_string(),
                         amount: coins(100, "quote_1"),
@@ -1155,14 +1129,14 @@ mod tests {
                 assert_eq!(execute_response.attributes[0], attr("action", "execute"));
                 assert_eq!(execute_response.messages.len(), 2);
                 assert_eq!(
-                    execute_response.messages[0],
+                    execute_response.messages[0].msg,
                     CosmosMsg::Bank(BankMsg::Send {
                         to_address: ask_order.owner.to_string(),
                         amount: ask_order.quote,
                     })
                 );
                 assert_eq!(
-                    execute_response.messages[1],
+                    execute_response.messages[1].msg,
                     CosmosMsg::Bank(BankMsg::Send {
                         to_address: bid_order.owner.to_string(),
                         amount: bid_order.base,
