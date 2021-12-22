@@ -341,78 +341,66 @@ mod tests {
 
     #[test]
     fn test_is_executable() {
-        assert_eq!(
-            is_executable(
-                &AskOrder {
-                    base: coins(100, "base_1"),
-                    id: "ask_id".to_string(),
-                    owner: Addr::unchecked("asker"),
-                    quote: coins(100, "quote_1"),
-                },
-                &BidOrder {
-                    base: coins(100, "base_1"),
-                    effective_time: Some(Timestamp::default()),
-                    id: "bid_id".to_string(),
-                    owner: Addr::unchecked("bidder"),
-                    quote: coins(100, "quote_1"),
-                }
-            ),
-            true
-        );
-        assert_eq!(
-            is_executable(
-                &AskOrder {
-                    base: vec![coin(100, "base_1"), coin(200, "base_2")],
-                    id: "ask_id".to_string(),
-                    owner: Addr::unchecked("asker"),
-                    quote: coins(100, "quote_1"),
-                },
-                &BidOrder {
-                    base: vec![coin(200, "base_2"), coin(100, "base_1")],
-                    effective_time: Some(Timestamp::default()),
-                    id: "bid_id".to_string(),
-                    owner: Addr::unchecked("bidder"),
-                    quote: coins(100, "quote_1"),
-                }
-            ),
-            true
-        );
-        assert_eq!(
-            is_executable(
-                &AskOrder {
-                    base: coins(100, "base_1"),
-                    id: "ask_id".to_string(),
-                    owner: Addr::unchecked("asker"),
-                    quote: coins(100, "quote_1"),
-                },
-                &BidOrder {
-                    base: coins(100, "base_2"),
-                    effective_time: Some(Timestamp::default()),
-                    id: "bid_id".to_string(),
-                    owner: Addr::unchecked("bidder"),
-                    quote: coins(100, "quote_1"),
-                }
-            ),
-            false
-        );
-        assert_eq!(
-            is_executable(
-                &AskOrder {
-                    base: coins(100, "base_1"),
-                    id: "ask_id".to_string(),
-                    owner: Addr::unchecked("asker"),
-                    quote: coins(100, "quote_1"),
-                },
-                &BidOrder {
-                    base: coins(100, "base_1"),
-                    effective_time: Some(Timestamp::default()),
-                    id: "bid_id".to_string(),
-                    owner: Addr::unchecked("bidder"),
-                    quote: coins(100, "quote_2"),
-                }
-            ),
-            false
-        );
+        assert!(is_executable(
+            &AskOrder {
+                base: coins(100, "base_1"),
+                id: "ask_id".to_string(),
+                owner: Addr::unchecked("asker"),
+                quote: coins(100, "quote_1"),
+            },
+            &BidOrder {
+                base: coins(100, "base_1"),
+                effective_time: Some(Timestamp::default()),
+                id: "bid_id".to_string(),
+                owner: Addr::unchecked("bidder"),
+                quote: coins(100, "quote_1"),
+            }
+        ));
+        assert!(is_executable(
+            &AskOrder {
+                base: vec![coin(100, "base_1"), coin(200, "base_2")],
+                id: "ask_id".to_string(),
+                owner: Addr::unchecked("asker"),
+                quote: coins(100, "quote_1"),
+            },
+            &BidOrder {
+                base: vec![coin(200, "base_2"), coin(100, "base_1")],
+                effective_time: Some(Timestamp::default()),
+                id: "bid_id".to_string(),
+                owner: Addr::unchecked("bidder"),
+                quote: coins(100, "quote_1"),
+            }
+        ));
+        assert!(!is_executable(
+            &AskOrder {
+                base: coins(100, "base_1"),
+                id: "ask_id".to_string(),
+                owner: Addr::unchecked("asker"),
+                quote: coins(100, "quote_1"),
+            },
+            &BidOrder {
+                base: coins(100, "base_2"),
+                effective_time: Some(Timestamp::default()),
+                id: "bid_id".to_string(),
+                owner: Addr::unchecked("bidder"),
+                quote: coins(100, "quote_1"),
+            }
+        ));
+        assert!(!is_executable(
+            &AskOrder {
+                base: coins(100, "base_1"),
+                id: "ask_id".to_string(),
+                owner: Addr::unchecked("asker"),
+                quote: coins(100, "quote_1"),
+            },
+            &BidOrder {
+                base: coins(100, "base_1"),
+                effective_time: Some(Timestamp::default()),
+                id: "bid_id".to_string(),
+                owner: Addr::unchecked("bidder"),
+                quote: coins(100, "quote_2"),
+            }
+        ));
     }
 
     #[test]
@@ -493,7 +481,7 @@ mod tests {
         };
 
         // initialize
-        let init_response = instantiate(deps.as_mut(), mock_env(), info.to_owned(), init_msg);
+        let init_response = instantiate(deps.as_mut(), mock_env(), info, init_msg);
 
         // verify initialize response
         match init_response {
@@ -877,10 +865,7 @@ mod tests {
 
         // verify ask order stored
         let ask_storage = get_ask_storage_read(&deps.storage);
-        assert_eq!(
-            ask_storage.load("ask_id".to_string().as_bytes()).is_ok(),
-            true
-        );
+        assert!(ask_storage.load("ask_id".to_string().as_bytes()).is_ok());
 
         // cancel ask order
         let asker_info = mock_info("asker", &[]);
@@ -916,10 +901,7 @@ mod tests {
 
         // verify ask order removed from storage
         let ask_storage = get_ask_storage_read(&deps.storage);
-        assert_eq!(
-            ask_storage.load("ask_id".to_string().as_bytes()).is_err(),
-            true
-        );
+        assert!(ask_storage.load("ask_id".to_string().as_bytes()).is_err());
 
         // create bid data
         let bidder_info = mock_info("bidder", &coins(100, "quote_1"));
@@ -939,10 +921,7 @@ mod tests {
 
         // verify bid order stored
         let bid_storage = get_bid_storage_read(&deps.storage);
-        assert_eq!(
-            bid_storage.load("bid_id".to_string().as_bytes()).is_ok(),
-            true
-        );
+        assert!(bid_storage.load("bid_id".to_string().as_bytes()).is_ok(),);
 
         // cancel bid order
         let bidder_info = mock_info("bidder", &[]);
@@ -979,10 +958,7 @@ mod tests {
 
         // verify bid order removed from storage
         let bid_storage = get_bid_storage_read(&deps.storage);
-        assert_eq!(
-            bid_storage.load("bid_id".to_string().as_bytes()).is_err(),
-            true
-        );
+        assert!(bid_storage.load("bid_id".to_string().as_bytes()).is_err());
     }
 
     #[test]
