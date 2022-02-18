@@ -1,8 +1,8 @@
 use cosmwasm_std::{
-    attr, to_binary, BankMsg, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
-    Timestamp,
+    attr, entry_point, to_binary, BankMsg, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response,
+    StdResult, Timestamp,
 };
-use provwasm_std::{bind_name, NameBinding, ProvenanceMsg};
+use provwasm_std::{bind_name, NameBinding, ProvenanceMsg, ProvenanceQuery};
 
 use crate::contract_info::{get_contract_info, set_contract_info, ContractInfo};
 use crate::error::ContractError;
@@ -13,8 +13,9 @@ use crate::state::{
 };
 
 // smart contract initialization entrypoint
+#[entry_point]
 pub fn instantiate(
-    deps: DepsMut,
+    deps: DepsMut<ProvenanceQuery>,
     env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
@@ -54,8 +55,9 @@ pub fn instantiate(
 }
 
 // smart contract execute entrypoint
+#[entry_point]
 pub fn execute(
-    deps: DepsMut,
+    deps: DepsMut<ProvenanceQuery>,
     env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
@@ -77,7 +79,7 @@ pub fn execute(
 
 // create ask entrypoint
 fn create_ask(
-    deps: DepsMut,
+    deps: DepsMut<ProvenanceQuery>,
     info: MessageInfo,
     id: String,
     quote: Vec<Coin>,
@@ -112,7 +114,7 @@ fn create_ask(
 
 // create bid entrypoint
 fn create_bid(
-    deps: DepsMut,
+    deps: DepsMut<ProvenanceQuery>,
     info: MessageInfo,
     id: String,
     base: Vec<Coin>,
@@ -149,7 +151,7 @@ fn create_bid(
 
 // cancel ask entrypoint
 fn cancel_ask(
-    deps: DepsMut,
+    deps: DepsMut<ProvenanceQuery>,
     _env: Env,
     info: MessageInfo,
     id: String,
@@ -190,7 +192,7 @@ fn cancel_ask(
 
 // cancel bid entrypoint
 fn cancel_bid(
-    deps: DepsMut,
+    deps: DepsMut<ProvenanceQuery>,
     _env: Env,
     info: MessageInfo,
     id: String,
@@ -231,7 +233,7 @@ fn cancel_bid(
 
 // match and execute an ask and bid order
 fn execute_match(
-    deps: DepsMut,
+    deps: DepsMut<ProvenanceQuery>,
     _env: Env,
     info: MessageInfo,
     ask_id: String,
@@ -311,7 +313,8 @@ fn is_executable(ask_order: &AskOrder, bid_order: &BidOrder) -> bool {
 }
 
 // smart contract query entrypoint
-pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+#[entry_point]
+pub fn query(deps: Deps<ProvenanceQuery>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::GetAsk { id } => {
             let ask_storage_read = get_ask_storage_read(deps.storage);
@@ -328,9 +331,10 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
 // unit tests
 #[cfg(test)]
 mod tests {
-    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info, MOCK_CONTRACT_ADDR};
+    use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
     use cosmwasm_std::{coin, coins, Addr, BankMsg};
     use cosmwasm_std::{CosmosMsg, Uint128};
+    use provwasm_mocks::mock_dependencies;
     use provwasm_std::{NameMsgParams, ProvenanceMsg, ProvenanceMsgParams, ProvenanceRoute};
 
     use crate::contract_info::{ContractInfo, CONTRACT_TYPE, CONTRACT_VERSION};
@@ -1089,7 +1093,7 @@ mod tests {
         };
 
         let mut ask_storage = get_ask_storage(&mut deps.storage);
-        if let Err(error) = ask_storage.save(&ask_order.id.as_bytes(), &ask_order) {
+        if let Err(error) = ask_storage.save(ask_order.id.as_bytes(), &ask_order) {
             panic!("unexpected error: {:?}", error)
         };
 
@@ -1103,7 +1107,7 @@ mod tests {
         };
 
         let mut bid_storage = get_bid_storage(&mut deps.storage);
-        if let Err(error) = bid_storage.save(&bid_order.id.as_bytes(), &bid_order) {
+        if let Err(error) = bid_storage.save(bid_order.id.as_bytes(), &bid_order) {
             panic!("unexpected error: {:?}", error);
         };
 
@@ -1169,7 +1173,7 @@ mod tests {
         };
 
         let mut ask_storage = get_ask_storage(&mut deps.storage);
-        if let Err(error) = ask_storage.save(&ask_order.id.as_bytes(), &ask_order) {
+        if let Err(error) = ask_storage.save(ask_order.id.as_bytes(), &ask_order) {
             panic!("unexpected error: {:?}", error)
         };
 
@@ -1183,7 +1187,7 @@ mod tests {
         };
 
         let mut bid_storage = get_bid_storage(&mut deps.storage);
-        if let Err(error) = bid_storage.save(&bid_order.id.as_bytes(), &bid_order) {
+        if let Err(error) = bid_storage.save(bid_order.id.as_bytes(), &bid_order) {
             panic!("unexpected error: {:?}", error);
         };
 
@@ -1307,7 +1311,7 @@ mod tests {
         };
 
         let mut ask_storage = get_ask_storage(&mut deps.storage);
-        if let Err(error) = ask_storage.save(&ask_order.id.as_bytes(), &ask_order) {
+        if let Err(error) = ask_storage.save(ask_order.id.as_bytes(), &ask_order) {
             panic!("unexpected error: {:?}", error)
         };
 
@@ -1321,7 +1325,7 @@ mod tests {
         };
 
         let mut bid_storage = get_bid_storage(&mut deps.storage);
-        if let Err(error) = bid_storage.save(&bid_order.id.as_bytes(), &bid_order) {
+        if let Err(error) = bid_storage.save(bid_order.id.as_bytes(), &bid_order) {
             panic!("unexpected error: {:?}", error);
         };
 
