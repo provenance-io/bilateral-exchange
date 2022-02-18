@@ -1,4 +1,4 @@
-use cosmwasm_std::{Addr, Coin, Storage};
+use cosmwasm_std::{Addr, Coin, Storage, Timestamp};
 use cosmwasm_storage::{bucket, bucket_read, Bucket, ReadonlyBucket};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -17,6 +17,7 @@ pub struct AskOrder {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct BidOrder {
     pub base: Vec<Coin>,
+    pub effective_time: Option<Timestamp>,
     pub id: String,
     pub owner: Addr,
     pub quote: Vec<Coin>,

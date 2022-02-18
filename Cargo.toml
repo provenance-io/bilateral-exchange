@@ -1,6 +1,6 @@
 [package]
 name = "bilateral-exchange"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Ken Talley <ktalley@figure.com>"]
 edition = "2018"
 
