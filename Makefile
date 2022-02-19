@@ -34,7 +34,3 @@ optimize:
 		--mount type=volume,source=bilateral_exchange_cache,target=/code/target \
 		--mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
 		cosmwasm/rust-optimizer:0.12.5
-
-.PHONY: install
-install: optimize
-	@cp artifacts/bilateral_exchange.wasm $(PIO_HOME)

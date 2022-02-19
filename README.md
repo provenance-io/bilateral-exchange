@@ -14,13 +14,13 @@ make
 git clone git@github.com:provenance-io/provenance.git
 git clone git@github.com:provenance-io/bilateral-exchange.git
 
-cp bilateral-exchange/examples/bilateral.fish bilateral-exchange/examples/create-base.fish provenance
+cp bilateral-exchange/examples/bilateral.sh bilateral-exchange/examples/create-base.sh provenance
 cd bilateral-exchange
 make
 cp artifacts/bilateral_exchange.wasm ../provenance
 cd ../provenance
-./create-base.fish
-./bilateral.fish
+./create-base.sh
+./bilateral.sh
 ```
 
 ## Example Usage
