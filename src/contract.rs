@@ -596,7 +596,7 @@ mod tests {
     }
 
     #[test]
-    fn create_ask_with_valid_data() {
+    fn create_ask_for_coin_with_valid_data() {
         let mut deps = mock_dependencies(&[]);
         if let Err(error) = set_contract_info(
             &mut deps.storage,
@@ -651,6 +651,90 @@ mod tests {
                         stored_order,
                         AskOrderV2 {
                             base: BaseType::coins(asker_info.funds),
+                            id,
+                            owner: asker_info.sender,
+                            quote,
+                        }
+                    )
+                }
+                _ => {
+                    panic!("ask order was not found in storage")
+                }
+            }
+        } else {
+            panic!("ask_message is not a CreateAsk type. this is bad.")
+        }
+    }
+
+    #[test]
+    fn test_create_ask_for_scope_with_valid_data() {
+        let mut deps = mock_dependencies(&[]);
+        if let Err(error) = set_contract_info(
+            &mut deps.storage,
+            &ContractInfo::new(
+                Addr::unchecked("contract_admin"),
+                "contract_bind_name".into(),
+                "contract_name".into(),
+            ),
+        ) {
+            panic!("unexpected error: {:?}", error)
+        }
+
+        let scope_address = "scope1qraczfp249d3rmysdurne8cxrwmqamu8tk".to_string();
+
+        // create ask data
+        let create_ask_msg = ExecuteMsg::CreateAsk {
+            id: "ask_id".into(),
+            quote: coins(100, "quote_1"),
+            scope_address: Some(scope_address.clone()),
+        };
+
+        let asker_info = mock_info("asker", &[]);
+
+        deps.querier.with_scope(Scope {
+            scope_id: scope_address.clone(),
+            specification_id: "scopespec1qs0lctxj49wprm9xwxt5wk0paswqzkdaax".to_string(),
+            owners: vec![Party {
+                address: Addr::unchecked("not_asker"),
+                role: PartyType::Owner,
+            }],
+            data_access: vec![],
+            value_owner_address: Addr::unchecked(MOCK_CONTRACT_ADDR),
+        });
+
+        // handle create ask
+        let create_ask_response = execute(
+            deps.as_mut(),
+            mock_env(),
+            asker_info.clone(),
+            create_ask_msg.clone(),
+        );
+
+        // verify handle create ask response
+        match create_ask_response {
+            Ok(response) => {
+                assert_eq!(response.attributes.len(), 1);
+                assert_eq!(response.attributes[0], attr("action", "create_ask"));
+            }
+            Err(error) => {
+                panic!("failed to create ask: {:?}", error)
+            }
+        }
+
+        // verify ask order stored
+        let ask_storage = get_ask_storage_read_v2(&deps.storage);
+        if let ExecuteMsg::CreateAsk {
+            id,
+            quote,
+            scope_address,
+        } = create_ask_msg
+        {
+            match ask_storage.load("ask_id".to_string().as_bytes()) {
+                Ok(stored_order) => {
+                    assert_eq!(
+                        stored_order,
+                        AskOrderV2 {
+                            base: BaseType::scope(scope_address.unwrap()),
                             id,
                             owner: asker_info.sender,
                             quote,
@@ -780,7 +864,116 @@ mod tests {
                 ContractError::MissingAskBase {} => {}
                 error => panic!("unexpected error: {:?}", error),
             },
-        }
+        };
+
+        // create ask with scope and funds provided
+        let create_ask_msg = ExecuteMsg::CreateAsk {
+            id: "id".into(),
+            quote: coins(100, "quote_1"),
+            scope_address: Some("scope-address".to_string()),
+        };
+
+        let create_ask_response = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("asker", &coins(150, "fakecoin")),
+            create_ask_msg,
+        );
+
+        match create_ask_response {
+            Ok(_) => panic!("expected error, but execute_create_ask_response ok"),
+            Err(error) => match error {
+                ContractError::ScopeAskBaseWithFunds => {}
+                error => panic!("unexpected error: {:?}", error),
+            },
+        };
+
+        // create ask with scope provided with incorrect value owner address
+        let create_ask_msg = ExecuteMsg::CreateAsk {
+            id: "id".into(),
+            quote: coins(100, "quote_1"),
+            scope_address: Some("scope_address".to_string()),
+        };
+
+        deps.querier.with_scope(Scope {
+            scope_id: "scope_address".to_string(),
+            specification_id: "spec_address".to_string(),
+            owners: vec![],
+            data_access: vec![],
+            value_owner_address: Addr::unchecked("not_contract_address"),
+        });
+
+        let create_ask_response = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("asker", &[]),
+            create_ask_msg.clone(),
+        );
+
+        match create_ask_response {
+            Ok(_) => panic!("expected error, but execute_create_ask_response ok"),
+            Err(error) => match error {
+                ContractError::InvalidScopeOwner {
+                    scope_address,
+                    explanation,
+                } => {
+                    assert_eq!(
+                        "scope_address", scope_address,
+                        "the proper scope address should be found",
+                    );
+                    assert_eq!(
+                        "the contract must be the scope's value owner", explanation,
+                        "the proper explanation must be used in the InvalidScopeOwner error",
+                    );
+                }
+                error => panic!("unexpected error: {:?}", error),
+            },
+        };
+
+        // create ask with scope provided with multiple owners specified - re-using previous ask msg
+        deps.querier.with_scope(Scope {
+            scope_id: "scope_address".to_string(),
+            specification_id: "spec_address".to_string(),
+            owners: vec![
+                Party {
+                    address: Addr::unchecked("asker"),
+                    role: PartyType::Owner,
+                },
+                Party {
+                    address: Addr::unchecked("other-guy"),
+                    role: PartyType::Owner,
+                },
+            ],
+            data_access: vec![],
+            value_owner_address: Addr::unchecked(MOCK_CONTRACT_ADDR),
+        });
+
+        let create_ask_response = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("asker", &[]),
+            create_ask_msg,
+        );
+
+        match create_ask_response {
+            Ok(_) => panic!("expected error, but execute_create_ask_response ok"),
+            Err(error) => match error {
+                ContractError::InvalidScopeOwner {
+                    scope_address,
+                    explanation,
+                } => {
+                    assert_eq!(
+                        "scope_address", scope_address,
+                        "the proper scope address should be found",
+                    );
+                    assert_eq!(
+                        "the scope should only include a single owner, but found: 2", explanation,
+                        "the proper explanation must be used in the InvalidScopeOwner error",
+                    );
+                }
+                error => panic!("unexpected error: {:?}", error),
+            },
+        };
     }
 
     #[test]
