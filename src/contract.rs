@@ -66,7 +66,11 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     match msg {
-        ExecuteMsg::CreateAsk { id, quote, base } => create_ask(deps, info, id, quote, base),
+        ExecuteMsg::CreateAsk {
+            id,
+            quote,
+            scope_address,
+        } => create_ask(deps, env, info, id, quote, scope_address),
         ExecuteMsg::CreateBid {
             id,
             base,
@@ -83,10 +87,11 @@ pub fn execute(
 // create ask entrypoint
 fn create_ask(
     deps: DepsMut<ProvenanceQuery>,
+    env: Env,
     info: MessageInfo,
     id: String,
     quote: Vec<Coin>,
-    base: Option<BaseType>,
+    scope_address: Option<String>,
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     if id.is_empty() {
         return Err(ContractError::MissingField { field: "id".into() });
@@ -96,31 +101,56 @@ fn create_ask(
             field: "quote".into(),
         });
     }
-
-    let ask_base = if let Some(base) = &base {
-        match base {
-            BaseType::Coin { .. } => return Err(ContractError::CoinAskBaseWithoutFunds),
-            BaseType::Scope { .. } => {
-                if !info.funds.is_empty() {
-                    // can't provide funds when putting in an ask for a scope
-                    return Err(ContractError::ScopeAskBaseWithFunds);
-                }
-
-                base.to_owned()
-            }
+    let (messages, base) = if let Some(address) = scope_address {
+        // can't provide funds when putting in an ask for a scope
+        if !info.funds.is_empty() {
+            return Err(ContractError::ScopeAskBaseWithFunds);
         }
+        let mut scope = ProvenanceQuerier::new(&deps.querier).get_scope(&address)?;
+        // due to restrictions on permissioning, the value owner address must be the contract's address prior to invoking this execute path
+        if scope.value_owner_address != env.contract.address {
+            return Err(ContractError::InvalidScopeOwner {
+                scope_address: scope.scope_id,
+                explanation: "the contract must be the scope's value owner".to_string(),
+            });
+        }
+        // if more than one owner is specified, removing all of them can potentially cause data loss
+        let owner_count = scope
+            .owners
+            .iter()
+            .filter(|owner| owner.role == PartyType::Owner)
+            .count();
+        if owner_count != 1 {
+            return Err(ContractError::InvalidScopeOwner {
+                scope_address: scope.scope_id,
+                explanation: format!(
+                    "the scope should only include a single owner, but found: {}",
+                    owner_count,
+                ),
+            });
+        }
+        scope.owners = scope
+            .owners
+            .into_iter()
+            .filter(|owner| owner.role != PartyType::Owner)
+            .collect();
+        scope.owners.push(Party {
+            address: env.contract.address.clone(),
+            role: PartyType::Owner,
+        });
+        let scope_write_msg = write_scope(scope, vec![env.contract.address])?;
+        (vec![scope_write_msg], BaseType::scope(&address))
     } else {
         if info.funds.is_empty() {
             return Err(ContractError::MissingAskBase);
         }
-
-        BaseType::coins(info.funds)
+        (vec![], BaseType::coins(info.funds))
     };
 
     let mut ask_storage = get_ask_storage_v2(deps.storage);
 
     let ask_order = AskOrderV2 {
-        base: ask_base,
+        base,
         id,
         owner: info.sender,
         quote,
@@ -130,6 +160,7 @@ fn create_ask(
 
     Ok(Response::new()
         .add_attributes(vec![attr("action", "create_ask")])
+        .add_messages(messages)
         .set_data(to_binary(&ask_order)?))
 }
 
@@ -582,7 +613,7 @@ mod tests {
         let create_ask_msg = ExecuteMsg::CreateAsk {
             id: "ask_id".into(),
             quote: coins(100, "quote_1"),
-            base: None,
+            scope_address: None,
         };
 
         let asker_info = mock_info("asker", &coins(2, "base_1"));
@@ -611,7 +642,7 @@ mod tests {
         if let ExecuteMsg::CreateAsk {
             id,
             quote,
-            base: None,
+            scope_address: None,
         } = create_ask_msg
         {
             match ask_storage.load("ask_id".to_string().as_bytes()) {
@@ -653,7 +684,7 @@ mod tests {
         let create_ask_msg = ExecuteMsg::CreateAsk {
             id: "".into(),
             quote: vec![],
-            base: None,
+            scope_address: None,
         };
 
         // handle create ask
@@ -679,7 +710,7 @@ mod tests {
         let create_ask_msg = ExecuteMsg::CreateAsk {
             id: "".into(),
             quote: coins(100, "quote_1"),
-            base: None,
+            scope_address: None,
         };
 
         // handle create ask
@@ -705,7 +736,7 @@ mod tests {
         let create_ask_msg = ExecuteMsg::CreateAsk {
             id: "id".into(),
             quote: vec![],
-            base: None,
+            scope_address: None,
         };
 
         // execute create ask
@@ -731,7 +762,7 @@ mod tests {
         let create_ask_msg = ExecuteMsg::CreateAsk {
             id: "id".into(),
             quote: coins(100, "quote_1"),
-            base: None,
+            scope_address: None,
         };
 
         // execute create ask
@@ -935,7 +966,7 @@ mod tests {
         let create_ask_msg = ExecuteMsg::CreateAsk {
             id: "ask_id".into(),
             quote: coins(100, "quote_1"),
-            base: None,
+            scope_address: None,
         };
 
         // execute create ask
