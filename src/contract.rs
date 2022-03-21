@@ -432,7 +432,7 @@ fn replace_scope_owner(
     scope.owners = scope
         .owners
         .into_iter()
-        .filter(|owner| owner.role == PartyType::Owner)
+        .filter(|owner| owner.role != PartyType::Owner)
         .collect();
     // Append the target value as the new sole owner
     scope.owners.push(Party {
@@ -755,8 +755,50 @@ mod tests {
             Ok(response) => {
                 assert_eq!(response.attributes.len(), 1);
                 assert_eq!(response.attributes[0], attr("action", "create_ask"));
-                // TODO: Inspect the contents of the message once they're available as public exports from provwasm
                 assert_eq!(response.messages.len(), 1);
+                // TODO: Uncomment this set of checks once the values are exposed in provwasm for it to compile
+                // match response.messages.first().unwrap().msg {
+                //     CosmosMsg::Custom(ProvenanceMsg {
+                //         params:
+                //             ProvenanceMsgParams::Metadata(
+                //                 provwasm_std::msg::MetadataMsgParams::WriteScope { scope, signers },
+                //             ),
+                //         ..
+                //     }) => {
+                //         assert_eq!(
+                //             1,
+                //             scope.owners.len(),
+                //             "expected the scope to only include one owner after the owner was changed to the contract",
+                //         );
+                //         let scope_owner = scope.owners.first().unwrap();
+                //         assert_eq!(
+                //             MOCK_CONTRACT_ADDR,
+                //             scope_owner.address.as_str(),
+                //             "expected the contract address to be set as the scope owner",
+                //         );
+                //         assert_eq!(
+                //             PartyType::Owner,
+                //             scope_owner.role,
+                //             "expected the contract's role to be that of owner",
+                //         );
+                //         assert_eq!(
+                //             MOCK_CONTRACT_ADDR,
+                //             scope.value_owner_address.as_str(),
+                //             "expected the contract to remain the value owner on the scope",
+                //         );
+                //         assert_eq!(
+                //             1,
+                //             signers.len(),
+                //             "expected only a single signer to be used on the write scope request",
+                //         );
+                //         assert_eq!(
+                //             MOCK_CONTRACT_ADDR,
+                //             signers.first().unwrap().as_str(),
+                //             "expected the signer for the write scope request to be the contract",
+                //         );
+                //     }
+                //     msg => panic!("unexpected message emitted by create ask: {:?}", msg),
+                // };
             }
             Err(error) => {
                 panic!("failed to create ask: {:?}", error)
