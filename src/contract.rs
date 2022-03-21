@@ -715,6 +715,8 @@ mod tests {
             Ok(response) => {
                 assert_eq!(response.attributes.len(), 1);
                 assert_eq!(response.attributes[0], attr("action", "create_ask"));
+                // TODO: Inspect the contents of the message once they're available as public exports from provwasm
+                assert_eq!(response.messages.len(), 1);
             }
             Err(error) => {
                 panic!("failed to create ask: {:?}", error)
