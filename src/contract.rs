@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    attr, entry_point, to_binary, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env,
+    attr, entry_point, to_binary, Addr, BankMsg, Binary, Coin, CosmosMsg, Deps, DepsMut, Env,
     MessageInfo, Response, StdResult, Timestamp,
 };
 use provwasm_std::{
@@ -114,30 +114,13 @@ fn create_ask(
                 explanation: "the contract must be the scope's value owner".to_string(),
             });
         }
-        // if more than one owner is specified, removing all of them can potentially cause data loss
-        let owner_count = scope
-            .owners
-            .iter()
-            .filter(|owner| owner.role == PartyType::Owner)
-            .count();
-        if owner_count != 1 {
-            return Err(ContractError::InvalidScopeOwner {
-                scope_address: scope.scope_id,
-                explanation: format!(
-                    "the scope should only include a single owner, but found: {}",
-                    owner_count,
-                ),
-            });
-        }
-        scope.owners = scope
-            .owners
-            .into_iter()
-            .filter(|owner| owner.role != PartyType::Owner)
-            .collect();
-        scope.owners.push(Party {
-            address: env.contract.address.clone(),
-            role: PartyType::Owner,
-        });
+        // Remove the owner from the scope and replace it with the contract
+        scope = replace_scope_owner(
+            scope,
+            env.contract.address.clone(),
+            false,
+            Some(info.sender.clone()),
+        )?;
         let scope_write_msg = write_scope(scope, vec![env.contract.address])?;
         (vec![scope_write_msg], BaseType::scope(&address))
     } else {
@@ -406,6 +389,63 @@ fn is_executable(ask_order: &AskOrderV2, bid_order: &BidOrderV2) -> bool {
     bid_quote.sort_by(coin_sorter);
 
     ask_base == bid_base && ask_quote == bid_quote
+}
+
+/// Switches the scope's current owner value to the given owner value.
+/// If replace_value_owner is specified, the new_owner value will also be used as the value owner.
+/// If validate_expected_owner is given an address, the owner's current address will be verified against it.
+fn replace_scope_owner(
+    mut scope: Scope,
+    new_owner: Addr,
+    replace_value_owner: bool,
+    validate_expected_owner: Option<Addr>,
+) -> Result<Scope, ContractError> {
+    let owners = scope
+        .owners
+        .iter()
+        .filter(|owner| owner.role == PartyType::Owner)
+        .collect::<Vec<&Party>>();
+    // if more than one owner is specified, removing all of them can potentially cause data loss
+    if owners.len() != 1 {
+        return Err(ContractError::InvalidScopeOwner {
+            scope_address: scope.scope_id,
+            explanation: format!(
+                "the scope should only include a single owner, but found: {}",
+                owners.len(),
+            ),
+        });
+    }
+    // The owner of the scope must be the sender to the contract - otherwise, scopes could be released on the behalf of others
+    if let Some(expected_owner) = validate_expected_owner {
+        let owner = owners.first().unwrap();
+        if owner.address != expected_owner {
+            return Err(ContractError::InvalidScopeOwner {
+                scope_address: scope.scope_id,
+                explanation: format!(
+                    "the scope owner was expected to be [{}], not [{}]",
+                    expected_owner, owner.address,
+                ),
+            });
+        }
+    }
+    // Empty out all owners from the scope now that it's verified safe to do
+    scope.owners = scope
+        .owners
+        .into_iter()
+        .filter(|owner| owner.role == PartyType::Owner)
+        .collect();
+    // Append the target value as the new sole owner
+    scope.owners.push(Party {
+        address: new_owner.clone(),
+        role: PartyType::Owner,
+    });
+    // Upon request, also swap over the value owner.  The contract cannot transfer value ownership to itself
+    // during contract execution, so this functionality should only be used when the contract is already the
+    // value owner of a scope and wants to swap it to a different owner
+    if replace_value_owner {
+        scope.value_owner_address = new_owner;
+    }
+    Ok(scope)
 }
 
 // smart contract query entrypoint
@@ -695,7 +735,7 @@ mod tests {
             scope_id: scope_address.clone(),
             specification_id: "scopespec1qs0lctxj49wprm9xwxt5wk0paswqzkdaax".to_string(),
             owners: vec![Party {
-                address: Addr::unchecked("not_asker"),
+                address: Addr::unchecked("asker"),
                 role: PartyType::Owner,
             }],
             data_access: vec![],
@@ -954,7 +994,7 @@ mod tests {
             deps.as_mut(),
             mock_env(),
             mock_info("asker", &[]),
-            create_ask_msg,
+            create_ask_msg.clone(),
         );
 
         match create_ask_response {
@@ -970,6 +1010,45 @@ mod tests {
                     );
                     assert_eq!(
                         "the scope should only include a single owner, but found: 2", explanation,
+                        "the proper explanation must be used in the InvalidScopeOwner error",
+                    );
+                }
+                error => panic!("unexpected error: {:?}", error),
+            },
+        };
+
+        // create ask with scope provided with incorrect single owner specified - re-using previous ask msg
+        deps.querier.with_scope(Scope {
+            scope_id: "scope_address".to_string(),
+            specification_id: "spec_address".to_string(),
+            owners: vec![Party {
+                address: Addr::unchecked("not-asker"),
+                role: PartyType::Owner,
+            }],
+            data_access: vec![],
+            value_owner_address: Addr::unchecked(MOCK_CONTRACT_ADDR),
+        });
+
+        let create_ask_response = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("asker", &[]),
+            create_ask_msg,
+        );
+
+        match create_ask_response {
+            Ok(_) => panic!("expected error, but execute_create_ask_response ok"),
+            Err(error) => match error {
+                ContractError::InvalidScopeOwner {
+                    scope_address,
+                    explanation,
+                } => {
+                    assert_eq!(
+                        "scope_address", scope_address,
+                        "the proper scope address should be found",
+                    );
+                    assert_eq!(
+                        "the scope owner was expected to be [asker], not [not-asker]", explanation,
                         "the proper explanation must be used in the InvalidScopeOwner error",
                     );
                 }
