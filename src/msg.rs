@@ -2,6 +2,8 @@ use cosmwasm_std::{Coin, Timestamp};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use crate::state::BaseType;
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct InstantiateMsg {
     pub bind_name: String,
@@ -20,10 +22,11 @@ pub enum ExecuteMsg {
     CreateAsk {
         id: String,
         quote: Vec<Coin>,
+        base: Option<BaseType>,
     },
     CreateBid {
         id: String,
-        base: Vec<Coin>,
+        base: BaseType,
         effective_time: Option<Timestamp>,
     },
     ExecuteMatch {

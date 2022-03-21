@@ -15,6 +15,12 @@ pub enum ContractError {
     #[error("Ask base was not sent")]
     MissingAskBase,
 
+    #[error("Scope ask base cannot also be sent funds")]
+    ScopeAskBaseWithFunds,
+
+    #[error("Coin ask base can only be created from funds provided")]
+    CoinAskBaseWithoutFunds,
+
     #[error("Missing field: {field:?}")]
     MissingField { field: String },
 
