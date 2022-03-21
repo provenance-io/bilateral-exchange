@@ -63,6 +63,12 @@
               "items": {
                 "$ref": "#/definitions/Coin"
               }
+            },
+            "scope_address": {
+              "type": [
+                "string",
+                "null"
+              ]
             }
           }
         }
@@ -83,10 +89,7 @@
           ],
           "properties": {
             "base": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Coin"
-              }
+              "$ref": "#/definitions/BaseType"
             },
             "effective_time": {
               "anyOf": [
@@ -132,6 +135,53 @@
     }
   ],
   "definitions": {
+    "BaseType": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "Coin"
+          ],
+          "properties": {
+            "Coin": {
+              "type": "object",
+              "required": [
+                "coins"
+              ],
+              "properties": {
+                "coins": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/Coin"
+                  }
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "Scope"
+          ],
+          "properties": {
+            "Scope": {
+              "type": "object",
+              "required": [
+                "scope_address"
+              ],
+              "properties": {
+                "scope_address": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "Coin": {
       "type": "object",
       "required": [

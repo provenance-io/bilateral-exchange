@@ -74,7 +74,7 @@ impl BaseType {
                     coins: coins.to_vec(),
                 }
             }
-            BaseType::Scope { scope_address } => self.to_owned(),
+            BaseType::Scope { .. } => self.to_owned(),
         }
     }
 }
