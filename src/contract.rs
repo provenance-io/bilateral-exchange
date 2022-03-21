@@ -440,6 +440,21 @@ mod tests {
                 quote: coins(100, "quote_1"),
             }
         ));
+        assert!(is_executable(
+            &AskOrderV2 {
+                base: BaseType::scope("scope1234"),
+                id: "ask_id".to_string(),
+                owner: Addr::unchecked("asker"),
+                quote: coins(100, "quote_1"),
+            },
+            &BidOrderV2 {
+                base: BaseType::scope("scope1234"),
+                effective_time: Some(Timestamp::default()),
+                id: "bid_id".to_string(),
+                owner: Addr::unchecked("bidder"),
+                quote: coins(100, "quote_1"),
+            }
+        ));
         assert!(!is_executable(
             &AskOrderV2 {
                 base: BaseType::coin(100, "base_1"),
@@ -468,6 +483,36 @@ mod tests {
                 id: "bid_id".to_string(),
                 owner: Addr::unchecked("bidder"),
                 quote: coins(100, "quote_2"),
+            }
+        ));
+        assert!(!is_executable(
+            &AskOrderV2 {
+                base: BaseType::scope("scope1234"),
+                id: "ask_id".to_string(),
+                owner: Addr::unchecked("asker"),
+                quote: coins(100, "quote_1"),
+            },
+            &BidOrderV2 {
+                base: BaseType::coin(100, "base_1"),
+                effective_time: Some(Timestamp::default()),
+                id: "bid_id".to_string(),
+                owner: Addr::unchecked("bidder"),
+                quote: coins(100, "quote_1"),
+            }
+        ));
+        assert!(!is_executable(
+            &AskOrderV2 {
+                base: BaseType::scope("scope1234"),
+                id: "ask_id".to_string(),
+                owner: Addr::unchecked("asker"),
+                quote: coins(100, "quote_1"),
+            },
+            &BidOrderV2 {
+                base: BaseType::scope("scope4321"),
+                effective_time: Some(Timestamp::default()),
+                id: "bid_id".to_string(),
+                owner: Addr::unchecked("bidder"),
+                quote: coins(100, "quote_1"),
             }
         ));
     }
@@ -912,6 +957,78 @@ mod tests {
                 ContractError::MissingBidQuote {} => {}
                 error => panic!("unexpected error: {:?}", error),
             },
+        }
+    }
+
+    #[test]
+    fn create_valid_bid_for_scope() {
+        let mut deps = mock_dependencies(&[]);
+        if let Err(error) = set_contract_info(
+            &mut deps.storage,
+            &ContractInfo::new(
+                Addr::unchecked("contract_admin"),
+                "contract_bind_name".into(),
+                "contract_name".into(),
+            ),
+        ) {
+            panic!("unexpected error: {:?}", error)
+        }
+
+        // create bid data
+        let create_bid_msg = ExecuteMsg::CreateBid {
+            id: "bid_id".into(),
+            base: BaseType::scope("scope1234"),
+            effective_time: Some(Timestamp::default()),
+        };
+
+        let bidder_info = mock_info("bidder", &coins(2, "mark_2"));
+
+        // execute create bid
+        let create_bid_response = execute(
+            deps.as_mut(),
+            mock_env(),
+            bidder_info.clone(),
+            create_bid_msg.clone(),
+        );
+
+        // verify execute create bid response
+        match create_bid_response {
+            Ok(response) => {
+                assert_eq!(response.attributes.len(), 1);
+                assert_eq!(response.attributes[0], attr("action", "create_bid"));
+            }
+            Err(error) => {
+                panic!("failed to create bid: {:?}", error)
+            }
+        }
+
+        // verify bid order stored
+        let bid_storage = get_bid_storage_read_v2(&deps.storage);
+        if let ExecuteMsg::CreateBid {
+            id,
+            base,
+            effective_time,
+        } = create_bid_msg
+        {
+            match bid_storage.load("bid_id".to_string().as_bytes()) {
+                Ok(stored_order) => {
+                    assert_eq!(
+                        stored_order,
+                        BidOrderV2 {
+                            base,
+                            effective_time,
+                            id,
+                            owner: bidder_info.sender,
+                            quote: bidder_info.funds,
+                        }
+                    )
+                }
+                _ => {
+                    panic!("bid order was not found in storage")
+                }
+            }
+        } else {
+            panic!("bid_message is not a CreateBid type. this is bad.")
         }
     }
 
