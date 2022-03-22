@@ -349,16 +349,7 @@ fn execute_match(
             let scope = ProvenanceQuerier::new(&deps.querier).get_scope(scope_address)?;
 
             messages.push(write_scope(
-                // TODO: Use:
-                // replace_scope_owner(scope, bid_order.owner, true, None)?,
-                Scope {
-                    owners: vec![Party {
-                        address: bid_order.owner.clone(),
-                        role: PartyType::Owner,
-                    }],
-                    value_owner_address: bid_order.owner,
-                    ..scope
-                },
+                replace_scope_owner(scope, bid_order.owner, true, None)?,
                 vec![env.contract.address],
             )?)
         }
