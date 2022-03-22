@@ -349,15 +349,7 @@ fn execute_match(
             let scope = ProvenanceQuerier::new(&deps.querier).get_scope(scope_address)?;
 
             messages.push(write_scope(
-                // TODO: Use:
-                // replace_scope_owner(scope, bid_order.owner, true, None)?,
-                Scope {
-                    owners: vec![Party {
-                        address: bid_order.owner,
-                        role: PartyType::Owner,
-                    }],
-                    ..scope
-                },
+                replace_scope_owner(scope, bid_order.owner, true, None)?,
                 vec![env.contract.address],
             )?)
         }
@@ -510,6 +502,21 @@ mod tests {
                 quote: coins(100, "quote_1"),
             }
         ));
+        assert!(is_executable(
+            &AskOrderV2 {
+                base: BaseType::scope("scope1234"),
+                id: "ask_id".to_string(),
+                owner: Addr::unchecked("asker"),
+                quote: coins(100, "quote_1"),
+            },
+            &BidOrderV2 {
+                base: BaseType::scope("scope1234"),
+                effective_time: Some(Timestamp::default()),
+                id: "bid_id".to_string(),
+                owner: Addr::unchecked("bidder"),
+                quote: coins(100, "quote_1"),
+            }
+        ));
         assert!(!is_executable(
             &AskOrderV2 {
                 base: BaseType::coin(100, "base_1"),
@@ -538,6 +545,36 @@ mod tests {
                 id: "bid_id".to_string(),
                 owner: Addr::unchecked("bidder"),
                 quote: coins(100, "quote_2"),
+            }
+        ));
+        assert!(!is_executable(
+            &AskOrderV2 {
+                base: BaseType::scope("scope1234"),
+                id: "ask_id".to_string(),
+                owner: Addr::unchecked("asker"),
+                quote: coins(100, "quote_1"),
+            },
+            &BidOrderV2 {
+                base: BaseType::coin(100, "base_1"),
+                effective_time: Some(Timestamp::default()),
+                id: "bid_id".to_string(),
+                owner: Addr::unchecked("bidder"),
+                quote: coins(100, "quote_1"),
+            }
+        ));
+        assert!(!is_executable(
+            &AskOrderV2 {
+                base: BaseType::scope("scope1234"),
+                id: "ask_id".to_string(),
+                owner: Addr::unchecked("asker"),
+                quote: coins(100, "quote_1"),
+            },
+            &BidOrderV2 {
+                base: BaseType::scope("scope4321"),
+                effective_time: Some(Timestamp::default()),
+                id: "bid_id".to_string(),
+                owner: Addr::unchecked("bidder"),
+                quote: coins(100, "quote_1"),
             }
         ));
     }
@@ -1262,6 +1299,78 @@ mod tests {
     }
 
     #[test]
+    fn create_valid_bid_for_scope() {
+        let mut deps = mock_dependencies(&[]);
+        if let Err(error) = set_contract_info(
+            &mut deps.storage,
+            &ContractInfo::new(
+                Addr::unchecked("contract_admin"),
+                "contract_bind_name".into(),
+                "contract_name".into(),
+            ),
+        ) {
+            panic!("unexpected error: {:?}", error)
+        }
+
+        // create bid data
+        let create_bid_msg = ExecuteMsg::CreateBid {
+            id: "bid_id".into(),
+            base: BaseType::scope("scope1234"),
+            effective_time: Some(Timestamp::default()),
+        };
+
+        let bidder_info = mock_info("bidder", &coins(2, "mark_2"));
+
+        // execute create bid
+        let create_bid_response = execute(
+            deps.as_mut(),
+            mock_env(),
+            bidder_info.clone(),
+            create_bid_msg.clone(),
+        );
+
+        // verify execute create bid response
+        match create_bid_response {
+            Ok(response) => {
+                assert_eq!(response.attributes.len(), 1);
+                assert_eq!(response.attributes[0], attr("action", "create_bid"));
+            }
+            Err(error) => {
+                panic!("failed to create bid: {:?}", error)
+            }
+        }
+
+        // verify bid order stored
+        let bid_storage = get_bid_storage_read_v2(&deps.storage);
+        if let ExecuteMsg::CreateBid {
+            id,
+            base,
+            effective_time,
+        } = create_bid_msg
+        {
+            match bid_storage.load("bid_id".to_string().as_bytes()) {
+                Ok(stored_order) => {
+                    assert_eq!(
+                        stored_order,
+                        BidOrderV2 {
+                            base,
+                            effective_time,
+                            id,
+                            owner: bidder_info.sender,
+                            quote: bidder_info.funds,
+                        }
+                    )
+                }
+                _ => {
+                    panic!("bid order was not found in storage")
+                }
+            }
+        } else {
+            panic!("bid_message is not a CreateBid type. this is bad.")
+        }
+    }
+
+    #[test]
     fn cancel_coin_with_valid_data() {
         let mut deps = mock_dependencies(&[]);
         if let Err(error) = set_contract_info(
@@ -1662,7 +1771,7 @@ mod tests {
     }
 
     #[test]
-    fn execute_with_valid_data() {
+    fn execute_match_with_valid_coin_data() {
         // setup
         let mut deps = mock_dependencies(&[]);
         if let Err(error) = set_contract_info(
@@ -1744,7 +1853,117 @@ mod tests {
     }
 
     #[test]
-    fn execute_with_invalid_data() {
+    fn execute_match_with_valid_scope_data() {
+        // setup
+        let mut deps = mock_dependencies(&[]);
+
+        let scope_input = Scope {
+            scope_id: "scope1234".to_string(),
+            specification_id: "scopespec1".to_string(),
+            owners: vec![Party {
+                address: Addr::unchecked("asker"),
+                role: PartyType::Owner,
+            }],
+            data_access: vec![],
+            value_owner_address: Addr::unchecked("asker"), // todo: does this need to be the contract's address?
+        };
+        deps.querier.with_scope(scope_input.clone());
+
+        if let Err(error) = set_contract_info(
+            &mut deps.storage,
+            &ContractInfo::new(
+                Addr::unchecked("contract_admin"),
+                "contract_bind_name".into(),
+                "contract_name".into(),
+            ),
+        ) {
+            panic!("unexpected error: {:?}", error)
+        }
+
+        // store valid ask order
+        let ask_order = AskOrderV2 {
+            base: BaseType::scope(&scope_input.scope_id),
+            id: "ask_id".into(),
+            owner: Addr::unchecked("asker"),
+            quote: coins(200, "quote_1"),
+        };
+
+        let mut ask_storage = get_ask_storage_v2(&mut deps.storage);
+        if let Err(error) = ask_storage.save(ask_order.id.as_bytes(), &ask_order) {
+            panic!("unexpected error: {:?}", error)
+        };
+
+        // store valid bid order
+        let bid_order = BidOrderV2 {
+            base: BaseType::scope(&scope_input.scope_id),
+            effective_time: Some(Timestamp::default()),
+            id: "bid_id".to_string(),
+            owner: Addr::unchecked("bidder"),
+            quote: coins(200, "quote_1"),
+        };
+
+        let mut bid_storage = get_bid_storage_v2(&mut deps.storage);
+        if let Err(error) = bid_storage.save(bid_order.id.as_bytes(), &bid_order) {
+            panic!("unexpected error: {:?}", error);
+        };
+
+        // execute on matched ask order and bid order
+        let execute_msg = ExecuteMsg::ExecuteMatch {
+            ask_id: ask_order.id,
+            bid_id: bid_order.id.clone(),
+        };
+
+        let execute_response = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("contract_admin", &[]),
+            execute_msg,
+        );
+
+        // validate execute response
+        match execute_response {
+            Err(error) => panic!("unexpected error: {:?}", error),
+            Ok(execute_response) => {
+                assert_eq!(execute_response.attributes.len(), 1);
+                assert_eq!(execute_response.attributes[0], attr("action", "execute"));
+                assert_eq!(execute_response.messages.len(), 2);
+                assert_eq!(
+                    execute_response.messages[0].msg,
+                    CosmosMsg::Bank(BankMsg::Send {
+                        to_address: ask_order.owner.to_string(),
+                        amount: ask_order.quote,
+                    })
+                );
+                handle_expected_scope(&bid_order.base, |scope_id| {
+                    if let CosmosMsg::Custom(ProvenanceMsg { params, .. }) =
+                        &execute_response.messages[1].msg
+                    {
+                        assert_eq!(
+                            params.to_owned(),
+                            ProvenanceMsgParams::Metadata(MetadataMsgParams::WriteScope {
+                                scope: Scope {
+                                    scope_id: scope_id.to_string(),
+                                    specification_id: scope_input.specification_id,
+                                    owners: vec![Party {
+                                        address: bid_order.owner.clone(),
+                                        role: PartyType::Owner
+                                    }],
+                                    data_access: scope_input.data_access,
+                                    value_owner_address: bid_order.owner.clone()
+                                },
+                                signers: vec![Addr::unchecked(MOCK_CONTRACT_ADDR)]
+                            }),
+                        );
+                    } else {
+                        panic!("Unexpected second message type for match, expected WriteScope, received {:?}", execute_response.messages[1].msg)
+                    }
+                });
+            }
+        }
+    }
+
+    #[test]
+    fn execute_match_with_invalid_coin_data() {
         // setup
         let mut deps = mock_dependencies(&[]);
         if let Err(error) = set_contract_info(
@@ -1772,6 +1991,157 @@ mod tests {
         };
 
         // store valid bid order
+        let bid_order = BidOrderV2 {
+            base: BaseType::coin(100, "base_1"),
+            effective_time: Some(Timestamp::default()),
+            id: "bid_id".into(),
+            owner: Addr::unchecked("bidder"),
+            quote: coins(100, "quote_1"),
+        };
+
+        let mut bid_storage = get_bid_storage_v2(&mut deps.storage);
+        if let Err(error) = bid_storage.save(bid_order.id.as_bytes(), &bid_order) {
+            panic!("unexpected error: {:?}", error);
+        };
+
+        // execute by non-admin ContractError::Unauthorized
+        let execute_msg = ExecuteMsg::ExecuteMatch {
+            ask_id: "ask_id".into(),
+            bid_id: "bid_id".into(),
+        };
+
+        let execute_response = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("user", &[]),
+            execute_msg,
+        );
+
+        match execute_response {
+            Err(ContractError::Unauthorized {}) => {}
+            Err(error) => panic!("unexpected error: {:?}", error),
+            Ok(_) => panic!("expected error, but execute_response ok"),
+        }
+
+        // execute on mismatched ask order and bid order returns ContractError::AskBidMismatch
+        let execute_msg = ExecuteMsg::ExecuteMatch {
+            ask_id: "ask_id".into(),
+            bid_id: "bid_id".into(),
+        };
+
+        let execute_response = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("contract_admin", &[]),
+            execute_msg,
+        );
+
+        match execute_response {
+            Err(ContractError::AskBidMismatch {}) => {}
+            Err(error) => panic!("unexpected error: {:?}", error),
+            Ok(_) => panic!("expected error, but execute_response ok"),
+        }
+
+        // execute on non-existent ask order and bid order returns ContractError::AskBidMismatch
+        let execute_msg = ExecuteMsg::ExecuteMatch {
+            ask_id: "no_ask_id".into(),
+            bid_id: "bid_id".into(),
+        };
+
+        let execute_response = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("contract_admin", &[]),
+            execute_msg,
+        );
+
+        match execute_response {
+            Err(ContractError::AskBidMismatch {}) => {}
+            Err(error) => panic!("unexpected error: {:?}", error),
+            Ok(_) => panic!("expected error, but execute_response ok"),
+        }
+
+        // execute on non-existent ask order and bid order returns ContractError::AskBidMismatch
+        let execute_msg = ExecuteMsg::ExecuteMatch {
+            ask_id: "ask_id".into(),
+            bid_id: "no_bid_id".into(),
+        };
+
+        let execute_response = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("contract_admin", &[]),
+            execute_msg,
+        );
+
+        match execute_response {
+            Err(ContractError::AskBidMismatch {}) => {}
+            Err(error) => panic!("unexpected error: {:?}", error),
+            Ok(_) => panic!("expected error, but execute_response ok"),
+        }
+
+        // execute with sent_funds returns ContractError::ExecuteWithFunds
+        let execute_msg = ExecuteMsg::ExecuteMatch {
+            ask_id: "ask_id".into(),
+            bid_id: "bid_id".into(),
+        };
+
+        let execute_response = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("contract_admin", &coins(100, "funds")),
+            execute_msg,
+        );
+
+        match execute_response {
+            Err(ContractError::ExecuteWithFunds {}) => {}
+            Err(error) => panic!("unexpected error: {:?}", error),
+            Ok(_) => panic!("expected error, but execute_response ok"),
+        }
+    }
+
+    #[test]
+    fn execute_match_with_invalid_scope_data() {
+        // setup
+        let mut deps = mock_dependencies(&[]);
+
+        let scope_input = Scope {
+            scope_id: "scope1234".to_string(),
+            specification_id: "scopespec1".to_string(),
+            owners: vec![Party {
+                address: Addr::unchecked("asker"),
+                role: PartyType::Owner,
+            }],
+            data_access: vec![],
+            value_owner_address: Addr::unchecked("asker"), // todo: does this need to be the contract's address?
+        };
+        deps.querier.with_scope(scope_input.clone());
+
+        if let Err(error) = set_contract_info(
+            &mut deps.storage,
+            &ContractInfo::new(
+                Addr::unchecked("contract_admin"),
+                "contract_bind_name".into(),
+                "contract_name".into(),
+            ),
+        ) {
+            panic!("unexpected error: {:?}", error)
+        }
+
+        // store valid ask order
+        let ask_order = AskOrderV2 {
+            base: BaseType::scope(scope_input.scope_id),
+            id: "ask_id".into(),
+            owner: Addr::unchecked("asker"),
+            quote: coins(100, "quote_1"),
+        };
+
+        let mut ask_storage = get_ask_storage_v2(&mut deps.storage);
+        if let Err(error) = ask_storage.save(ask_order.id.as_bytes(), &ask_order) {
+            panic!("unexpected error: {:?}", error)
+        };
+
+        // store invalid bid order
         let bid_order = BidOrderV2 {
             base: BaseType::coin(100, "base_1"),
             effective_time: Some(Timestamp::default()),
@@ -1964,6 +2334,13 @@ mod tests {
         match base_type {
             BaseType::Coin { coins } => action(coins),
             _ => panic!("Unexpected base type of scope"),
+        }
+    }
+
+    fn handle_expected_scope<A: FnOnce(&String) -> ()>(base_type: &BaseType, action: A) {
+        match base_type {
+            BaseType::Scope { scope_address } => action(scope_address),
+            _ => panic!("Unexpected base type of coin"),
         }
     }
 }
