@@ -101,33 +101,24 @@ fn create_ask(
             field: "quote".into(),
         });
     }
-    let (messages, base) = if let Some(address) = scope_address {
+    let base = if let Some(address) = scope_address {
         // can't provide funds when putting in an ask for a scope
         if !info.funds.is_empty() {
             return Err(ContractError::ScopeAskBaseWithFunds);
         }
-        let mut scope = ProvenanceQuerier::new(&deps.querier).get_scope(&address)?;
-        // due to restrictions on permissioning, the value owner address must be the contract's address prior to invoking this execute path
-        if scope.value_owner_address != env.contract.address {
-            return Err(ContractError::InvalidScopeOwner {
-                scope_address: scope.scope_id,
-                explanation: "the contract must be the scope's value owner".to_string(),
-            });
-        }
-        // Remove the owner from the scope and replace it with the contract
-        scope = replace_scope_owner(
-            scope,
-            env.contract.address.clone(),
-            false,
-            Some(info.sender.clone()),
+        // verify that the scope is owned by the contract prior to consuming via the ask route
+        // due to restrictions on permissioning, the scope owner and value owner address must be the contract's address prior to invoking this execute path
+        check_scope_owners(
+            &ProvenanceQuerier::new(&deps.querier).get_scope(&address)?,
+            Some(&env.contract.address),
+            Some(&env.contract.address),
         )?;
-        let scope_write_msg = write_scope(scope, vec![env.contract.address])?;
-        (vec![scope_write_msg], BaseType::scope(&address))
+        BaseType::scope(&address)
     } else {
         if info.funds.is_empty() {
             return Err(ContractError::MissingAskBase);
         }
-        (vec![], BaseType::coins(info.funds))
+        BaseType::coins(info.funds)
     };
 
     let mut ask_storage = get_ask_storage_v2(deps.storage);
@@ -143,7 +134,6 @@ fn create_ask(
 
     Ok(Response::new()
         .add_attributes(vec![attr("action", "create_ask")])
-        .add_messages(messages)
         .set_data(to_binary(&ask_order)?))
 }
 
@@ -235,7 +225,7 @@ fn cancel_ask(
 
                     // Set the original asker's address back to being the owner and value owner address
                     messages.push(write_scope(
-                        replace_scope_owner(scope, stored_ask_order.owner, true, None)?,
+                        replace_scope_owner(scope, stored_ask_order.owner)?,
                         vec![env.contract.address],
                     )?);
                 }
@@ -349,7 +339,7 @@ fn execute_match(
             let scope = ProvenanceQuerier::new(&deps.querier).get_scope(scope_address)?;
 
             messages.push(write_scope(
-                replace_scope_owner(scope, bid_order.owner, true, None)?,
+                replace_scope_owner(scope, bid_order.owner)?,
                 vec![env.contract.address],
             )?)
         }
@@ -380,15 +370,14 @@ fn is_executable(ask_order: &AskOrderV2, bid_order: &BidOrderV2) -> bool {
     ask_base == bid_base && ask_quote == bid_quote
 }
 
-/// Switches the scope's current owner value to the given owner value.
-/// If replace_value_owner is specified, the new_owner value will also be used as the value owner.
-/// If validate_expected_owner is given an address, the owner's current address will be verified against it.
-fn replace_scope_owner(
-    mut scope: Scope,
-    new_owner: Addr,
-    replace_value_owner: bool,
-    validate_expected_owner: Option<Addr>,
-) -> Result<Scope, ContractError> {
+/// Verifies that the scope is properly owned.  At minimum, checks that the scope has only a singular owner.
+/// If expected_owner is provided, the single owner with party type Owner must match this address.
+/// If expected_value_owner is provided, the value_owner_address value must match this.
+fn check_scope_owners(
+    scope: &Scope,
+    expected_owner: Option<&Addr>,
+    expected_value_owner: Option<&Addr>,
+) -> Result<(), ContractError> {
     let owners = scope
         .owners
         .iter()
@@ -397,26 +386,41 @@ fn replace_scope_owner(
     // if more than one owner is specified, removing all of them can potentially cause data loss
     if owners.len() != 1 {
         return Err(ContractError::InvalidScopeOwner {
-            scope_address: scope.scope_id,
+            scope_address: scope.scope_id.clone(),
             explanation: format!(
                 "the scope should only include a single owner, but found: {}",
                 owners.len(),
             ),
         });
     }
-    // The owner of the scope must be the sender to the contract - otherwise, scopes could be released on the behalf of others
-    if let Some(expected_owner) = validate_expected_owner {
+    if let Some(expected) = expected_owner {
         let owner = owners.first().unwrap();
-        if owner.address != expected_owner {
+        if &owner.address != expected {
             return Err(ContractError::InvalidScopeOwner {
-                scope_address: scope.scope_id,
+                scope_address: scope.scope_id.clone(),
                 explanation: format!(
                     "the scope owner was expected to be [{}], not [{}]",
-                    expected_owner, owner.address,
+                    expected, owner.address,
                 ),
             });
         }
     }
+    if let Some(expected) = expected_value_owner {
+        if &scope.value_owner_address != expected {
+            return Err(ContractError::InvalidScopeOwner {
+                scope_address: scope.scope_id.clone(),
+                explanation: format!(
+                    "the scope's value owner was expected to be [{}], not [{}]",
+                    expected, scope.value_owner_address,
+                ),
+            });
+        }
+    }
+    Ok(())
+}
+
+/// Switches the scope's current owner value to the given owner value.
+fn replace_scope_owner(mut scope: Scope, new_owner: Addr) -> Result<Scope, ContractError> {
     // Empty out all owners from the scope now that it's verified safe to do
     scope.owners = scope
         .owners
@@ -428,12 +432,9 @@ fn replace_scope_owner(
         address: new_owner.clone(),
         role: PartyType::Owner,
     });
-    // Upon request, also swap over the value owner.  The contract cannot transfer value ownership to itself
-    // during contract execution, so this functionality should only be used when the contract is already the
-    // value owner of a scope and wants to swap it to a different owner
-    if replace_value_owner {
-        scope.value_owner_address = new_owner;
-    }
+    // Swap over the value owner, ensuring that the target owner not only is listed as an owner,
+    // but has full access control over the scope
+    scope.value_owner_address = new_owner;
     Ok(scope)
 }
 
@@ -771,7 +772,7 @@ mod tests {
             scope_id: scope_address.clone(),
             specification_id: "scopespec1qs0lctxj49wprm9xwxt5wk0paswqzkdaax".to_string(),
             owners: vec![Party {
-                address: Addr::unchecked("asker"),
+                address: Addr::unchecked(MOCK_CONTRACT_ADDR),
                 role: PartyType::Owner,
             }],
             data_access: vec![],
@@ -791,50 +792,7 @@ mod tests {
             Ok(response) => {
                 assert_eq!(response.attributes.len(), 1);
                 assert_eq!(response.attributes[0], attr("action", "create_ask"));
-                assert_eq!(response.messages.len(), 1);
-                match &response.messages.first().unwrap().msg {
-                    CosmosMsg::Custom(ProvenanceMsg {
-                        params:
-                            ProvenanceMsgParams::Metadata(MetadataMsgParams::WriteScope {
-                                scope,
-                                signers,
-                            }),
-                        ..
-                    }) => {
-                        assert_eq!(
-                            1,
-                            scope.owners.len(),
-                            "expected the scope to only include one owner after the owner was changed to the contract",
-                        );
-                        let scope_owner = scope.owners.first().unwrap();
-                        assert_eq!(
-                            MOCK_CONTRACT_ADDR,
-                            scope_owner.address.as_str(),
-                            "expected the contract address to be set as the scope owner",
-                        );
-                        assert_eq!(
-                            PartyType::Owner,
-                            scope_owner.role,
-                            "expected the contract's role to be that of owner",
-                        );
-                        assert_eq!(
-                            MOCK_CONTRACT_ADDR,
-                            scope.value_owner_address.as_str(),
-                            "expected the contract to remain the value owner on the scope",
-                        );
-                        assert_eq!(
-                            1,
-                            signers.len(),
-                            "expected only a single signer to be used on the write scope request",
-                        );
-                        assert_eq!(
-                            MOCK_CONTRACT_ADDR,
-                            signers.first().unwrap().as_str(),
-                            "expected the signer for the write scope request to be the contract",
-                        );
-                    }
-                    msg => panic!("unexpected message emitted by create ask: {:?}", msg),
-                };
+                assert!(response.messages.is_empty());
             }
             Err(error) => {
                 panic!("failed to create ask: {:?}", error)
@@ -1018,7 +976,10 @@ mod tests {
         deps.querier.with_scope(Scope {
             scope_id: "scope_address".to_string(),
             specification_id: "spec_address".to_string(),
-            owners: vec![],
+            owners: vec![Party {
+                address: Addr::unchecked(MOCK_CONTRACT_ADDR),
+                role: PartyType::Owner,
+            }],
             data_access: vec![],
             value_owner_address: Addr::unchecked("not_contract_address"),
         });
@@ -1042,7 +1003,7 @@ mod tests {
                         "the proper scope address should be found",
                     );
                     assert_eq!(
-                        "the contract must be the scope's value owner", explanation,
+                        "the scope's value owner was expected to be [cosmos2contract], not [not_contract_address]", explanation,
                         "the proper explanation must be used in the InvalidScopeOwner error",
                     );
                 }
@@ -1095,12 +1056,12 @@ mod tests {
             },
         };
 
-        // create ask with scope provided with incorrect single owner specified - re-using previous ask msg
+        // create ask with scope provided with incorrect contract owner specified - re-using previous ask msg
         deps.querier.with_scope(Scope {
             scope_id: "scope_address".to_string(),
             specification_id: "spec_address".to_string(),
             owners: vec![Party {
-                address: Addr::unchecked("not-asker"),
+                address: Addr::unchecked("not-contract-address"),
                 role: PartyType::Owner,
             }],
             data_access: vec![],
@@ -1126,7 +1087,7 @@ mod tests {
                         "the proper scope address should be found",
                     );
                     assert_eq!(
-                        "the scope owner was expected to be [asker], not [not-asker]", explanation,
+                        "the scope owner was expected to be [cosmos2contract], not [not-contract-address]", explanation,
                         "the proper explanation must be used in the InvalidScopeOwner error",
                     );
                 }
@@ -1523,7 +1484,7 @@ mod tests {
             scope_id: "scope_address".to_string(),
             specification_id: "spec_address".to_string(),
             owners: vec![Party {
-                address: Addr::unchecked("asker"),
+                address: Addr::unchecked(MOCK_CONTRACT_ADDR),
                 role: PartyType::Owner,
             }],
             data_access: vec![],
