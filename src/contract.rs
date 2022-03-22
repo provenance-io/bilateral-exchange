@@ -7,9 +7,9 @@ use provwasm_std::{
     ProvenanceQuery, Scope,
 };
 
-use crate::contract_info::{get_contract_info, set_contract_info, ContractInfo};
+use crate::contract_info::{get_contract_info, set_contract_info, ContractInfo, CONTRACT_VERSION};
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use crate::state::{
     get_ask_storage_read_v2, get_ask_storage_v2, get_bid_storage_read_v2, get_bid_storage_v2,
     AskOrderV2, BaseType, BidOrderV2,
@@ -452,6 +452,25 @@ pub fn query(deps: Deps<ProvenanceQuery>, _env: Env, msg: QueryMsg) -> StdResult
         }
         QueryMsg::GetContractInfo {} => to_binary(&get_contract_info(deps.storage)?),
     }
+}
+
+#[entry_point]
+pub fn migrate(
+    deps: DepsMut<ProvenanceQuery>,
+    _env: Env,
+    msg: MigrateMsg,
+) -> Result<Response, ContractError> {
+    match msg {
+        MigrateMsg::NewVersion {} => migrate_new_version(deps),
+    }
+}
+
+fn migrate_new_version(deps: DepsMut<ProvenanceQuery>) -> Result<Response, ContractError> {
+    let mut contract_info = get_contract_info(deps.storage)?;
+    // Bump version in contract info the version stored in the wasm
+    contract_info.contract_version = CONTRACT_VERSION.into();
+    set_contract_info(deps.storage, &contract_info)?;
+    Ok(Response::new().add_attribute("action", "migrate"))
 }
 
 // unit tests
