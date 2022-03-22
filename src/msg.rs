@@ -22,7 +22,7 @@ pub enum ExecuteMsg {
     CreateAsk {
         id: String,
         quote: Vec<Coin>,
-        base: Option<BaseType>,
+        scope_address: Option<String>,
     },
     CreateBid {
         id: String,

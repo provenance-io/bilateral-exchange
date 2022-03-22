@@ -18,8 +18,11 @@ pub enum ContractError {
     #[error("Scope ask base cannot also be sent funds")]
     ScopeAskBaseWithFunds,
 
-    #[error("Coin ask base can only be created from funds provided")]
-    CoinAskBaseWithoutFunds,
+    #[error("Scope at address [{scope_address}] has invalid owner: {explanation}")]
+    InvalidScopeOwner {
+        scope_address: String,
+        explanation: String,
+    },
 
     #[error("Missing field: {field:?}")]
     MissingField { field: String },
