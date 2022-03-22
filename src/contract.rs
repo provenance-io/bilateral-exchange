@@ -468,7 +468,9 @@ mod tests {
     use cosmwasm_std::{coin, coins, Addr, BankMsg};
     use cosmwasm_std::{CosmosMsg, Uint128};
     use provwasm_mocks::mock_dependencies;
-    use provwasm_std::{NameMsgParams, ProvenanceMsg, ProvenanceMsgParams, ProvenanceRoute};
+    use provwasm_std::{
+        MetadataMsgParams, NameMsgParams, ProvenanceMsg, ProvenanceMsgParams, ProvenanceRoute,
+    };
 
     use crate::contract_info::{ContractInfo, CONTRACT_TYPE, CONTRACT_VERSION};
     use crate::state::{get_bid_storage_read_v2, BaseType};
@@ -753,49 +755,49 @@ mod tests {
                 assert_eq!(response.attributes.len(), 1);
                 assert_eq!(response.attributes[0], attr("action", "create_ask"));
                 assert_eq!(response.messages.len(), 1);
-                // TODO: Uncomment this set of checks once the values are exposed in provwasm for it to compile
-                // match response.messages.first().unwrap().msg {
-                //     CosmosMsg::Custom(ProvenanceMsg {
-                //         params:
-                //             ProvenanceMsgParams::Metadata(
-                //                 provwasm_std::msg::MetadataMsgParams::WriteScope { scope, signers },
-                //             ),
-                //         ..
-                //     }) => {
-                //         assert_eq!(
-                //             1,
-                //             scope.owners.len(),
-                //             "expected the scope to only include one owner after the owner was changed to the contract",
-                //         );
-                //         let scope_owner = scope.owners.first().unwrap();
-                //         assert_eq!(
-                //             MOCK_CONTRACT_ADDR,
-                //             scope_owner.address.as_str(),
-                //             "expected the contract address to be set as the scope owner",
-                //         );
-                //         assert_eq!(
-                //             PartyType::Owner,
-                //             scope_owner.role,
-                //             "expected the contract's role to be that of owner",
-                //         );
-                //         assert_eq!(
-                //             MOCK_CONTRACT_ADDR,
-                //             scope.value_owner_address.as_str(),
-                //             "expected the contract to remain the value owner on the scope",
-                //         );
-                //         assert_eq!(
-                //             1,
-                //             signers.len(),
-                //             "expected only a single signer to be used on the write scope request",
-                //         );
-                //         assert_eq!(
-                //             MOCK_CONTRACT_ADDR,
-                //             signers.first().unwrap().as_str(),
-                //             "expected the signer for the write scope request to be the contract",
-                //         );
-                //     }
-                //     msg => panic!("unexpected message emitted by create ask: {:?}", msg),
-                // };
+                match &response.messages.first().unwrap().msg {
+                    CosmosMsg::Custom(ProvenanceMsg {
+                        params:
+                            ProvenanceMsgParams::Metadata(MetadataMsgParams::WriteScope {
+                                scope,
+                                signers,
+                            }),
+                        ..
+                    }) => {
+                        assert_eq!(
+                            1,
+                            scope.owners.len(),
+                            "expected the scope to only include one owner after the owner was changed to the contract",
+                        );
+                        let scope_owner = scope.owners.first().unwrap();
+                        assert_eq!(
+                            MOCK_CONTRACT_ADDR,
+                            scope_owner.address.as_str(),
+                            "expected the contract address to be set as the scope owner",
+                        );
+                        assert_eq!(
+                            PartyType::Owner,
+                            scope_owner.role,
+                            "expected the contract's role to be that of owner",
+                        );
+                        assert_eq!(
+                            MOCK_CONTRACT_ADDR,
+                            scope.value_owner_address.as_str(),
+                            "expected the contract to remain the value owner on the scope",
+                        );
+                        assert_eq!(
+                            1,
+                            signers.len(),
+                            "expected only a single signer to be used on the write scope request",
+                        );
+                        assert_eq!(
+                            MOCK_CONTRACT_ADDR,
+                            signers.first().unwrap().as_str(),
+                            "expected the signer for the write scope request to be the contract",
+                        );
+                    }
+                    msg => panic!("unexpected message emitted by create ask: {:?}", msg),
+                };
             }
             Err(error) => {
                 panic!("failed to create ask: {:?}", error)
@@ -1449,49 +1451,49 @@ mod tests {
                     attr("action", "cancel_ask")
                 );
                 assert_eq!(cancel_ask_response.messages.len(), 1);
-                // TODO: Uncomment this set of checks once the values are exposed in provwasm for it to compile
-                // match cancel_ask_response.messages.first().unwrap().msg {
-                //     CosmosMsg::Custom(ProvenanceMsg {
-                //         params:
-                //             ProvenanceMsgParams::Metadata(
-                //                 provwasm_std::msg::MetadataMsgParams::WriteScope { scope, signers },
-                //             ),
-                //         ..
-                //     }) => {
-                //         assert_eq!(
-                //             1,
-                //             scope.owners.len(),
-                //             "expected the scope to only include one owner after the owner is swapped back to the original value",
-                //         );
-                //         let scope_owner = scope.owners.first().unwrap();
-                //         assert_eq!(
-                //             "asker",
-                //             scope_owner.address.as_str(),
-                //             "expected the asker address to be set as the scope owner",
-                //         );
-                //         assert_eq!(
-                //             PartyType::Owner,
-                //             scope_owner.role,
-                //             "expected the asker's role to be that of owner",
-                //         );
-                //         assert_eq!(
-                //             "asker",
-                //             scope.value_owner_address.as_str(),
-                //             "expected the asker to be set as the value owner after a cancellation",
-                //         );
-                //         assert_eq!(
-                //             1,
-                //             signers.len(),
-                //             "expected only a single signer to be used on the write scope request",
-                //         );
-                //         assert_eq!(
-                //             MOCK_CONTRACT_ADDR,
-                //             signers.first().unwrap().as_str(),
-                //             "expected the signer for the write scope request to be the contract",
-                //         );
-                //     }
-                //     msg => panic!("unexpected message emitted by cancel ask: {:?}", msg),
-                // };
+                match &cancel_ask_response.messages.first().unwrap().msg {
+                    CosmosMsg::Custom(ProvenanceMsg {
+                        params:
+                            ProvenanceMsgParams::Metadata(MetadataMsgParams::WriteScope {
+                                scope,
+                                signers,
+                            }),
+                        ..
+                    }) => {
+                        assert_eq!(
+                            1,
+                            scope.owners.len(),
+                            "expected the scope to only include one owner after the owner is swapped back to the original value",
+                        );
+                        let scope_owner = scope.owners.first().unwrap();
+                        assert_eq!(
+                            "asker",
+                            scope_owner.address.as_str(),
+                            "expected the asker address to be set as the scope owner",
+                        );
+                        assert_eq!(
+                            PartyType::Owner,
+                            scope_owner.role,
+                            "expected the asker's role to be that of owner",
+                        );
+                        assert_eq!(
+                            "asker",
+                            scope.value_owner_address.as_str(),
+                            "expected the asker to be set as the value owner after a cancellation",
+                        );
+                        assert_eq!(
+                            1,
+                            signers.len(),
+                            "expected only a single signer to be used on the write scope request",
+                        );
+                        assert_eq!(
+                            MOCK_CONTRACT_ADDR,
+                            signers.first().unwrap().as_str(),
+                            "expected the signer for the write scope request to be the contract",
+                        );
+                    }
+                    msg => panic!("unexpected message emitted by cancel ask: {:?}", msg),
+                };
             }
             Err(error) => panic!("unexpected error: {:?}", error),
         }
