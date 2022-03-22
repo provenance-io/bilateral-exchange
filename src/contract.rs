@@ -342,9 +342,10 @@ fn execute_match(
             messages.push(write_scope(
                 Scope {
                     owners: vec![Party {
-                        address: bid_order.owner,
+                        address: bid_order.owner.clone(),
                         role: PartyType::Owner,
                     }],
+                    value_owner_address: bid_order.owner,
                     ..scope
                 },
                 vec![env.contract.address],
@@ -400,7 +401,9 @@ mod tests {
     use cosmwasm_std::{coin, coins, Addr, BankMsg};
     use cosmwasm_std::{CosmosMsg, Uint128};
     use provwasm_mocks::mock_dependencies;
-    use provwasm_std::{NameMsgParams, ProvenanceMsg, ProvenanceMsgParams, ProvenanceRoute};
+    use provwasm_std::{
+        MetadataMsgParams, NameMsgParams, ProvenanceMsg, ProvenanceMsgParams, ProvenanceRoute,
+    };
 
     use crate::contract_info::{ContractInfo, CONTRACT_TYPE, CONTRACT_VERSION};
     use crate::state::{get_bid_storage_read_v2, BaseType};
@@ -1387,7 +1390,7 @@ mod tests {
 
         // store valid bid order
         let bid_order = BidOrderV2 {
-            base: BaseType::scope(scope_input.scope_id),
+            base: BaseType::scope(&scope_input.scope_id),
             effective_time: Some(Timestamp::default()),
             id: "bid_id".to_string(),
             owner: Addr::unchecked("bidder"),
@@ -1405,10 +1408,9 @@ mod tests {
             bid_id: bid_order.id.clone(),
         };
 
-        let contract_env = mock_env();
         let execute_response = execute(
             deps.as_mut(),
-            contract_env,
+            mock_env(),
             mock_info("contract_admin", &[]),
             execute_msg,
         );
@@ -1431,20 +1433,22 @@ mod tests {
                     if let CosmosMsg::Custom(ProvenanceMsg { params, .. }) =
                         &execute_response.messages[1].msg
                     {
-                        todo!("Uncomment this once MetadataMsgParams are exposed, and hopefully it just works :magic:");
-                        // assert_eq!(
-                        //     params,
-                        //     ProvenanceMsgParams::Metadata(MetadataMsgParams::WriteScope {
-                        //         scope: Scope {
-                        //             scope_id: scope_input.scope_id,
-                        //             specification_id: scope_input.specification_id,
-                        //             owners: scope_input.owners,
-                        //             data_access: scope_input.data_access,
-                        //             value_owner_address: bid_order.owner
-                        //         },
-                        //         signers: vec![contract_env.contract.address]
-                        //     }),
-                        // );
+                        assert_eq!(
+                            params.to_owned(),
+                            ProvenanceMsgParams::Metadata(MetadataMsgParams::WriteScope {
+                                scope: Scope {
+                                    scope_id: scope_id.to_string(),
+                                    specification_id: scope_input.specification_id,
+                                    owners: vec![Party {
+                                        address: bid_order.owner.clone(),
+                                        role: PartyType::Owner
+                                    }],
+                                    data_access: scope_input.data_access,
+                                    value_owner_address: bid_order.owner.clone()
+                                },
+                                signers: vec![Addr::unchecked(MOCK_CONTRACT_ADDR)]
+                            }),
+                        );
                     } else {
                         panic!("Unexpected second message type for match, expected WriteScope, received {:?}", execute_response.messages[1].msg)
                     }
