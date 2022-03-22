@@ -42,6 +42,7 @@ pub static NAMESPACE_ORDER_ASK_V2: &[u8] = b"ask_v2";
 pub static NAMESPACE_ORDER_BID_V2: &[u8] = b"bid_v2";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
 pub enum BaseType {
     Coin { coins: Vec<Coin> },
     Scope { scope_address: String },
