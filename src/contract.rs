@@ -227,22 +227,17 @@ fn cancel_ask(
                     messages.push(cosmwasm_std::CosmosMsg::Bank(BankMsg::Send {
                         to_address: stored_ask_order.owner.to_string(),
                         amount: coins,
-                    }))
+                    }));
                 }
                 BaseType::Scope { scope_address } => {
                     // fetch scope
                     let scope = ProvenanceQuerier::new(&deps.querier).get_scope(scope_address)?;
 
+                    // Set the original asker's address back to being the owner and value owner address
                     messages.push(write_scope(
-                        Scope {
-                            owners: vec![Party {
-                                address: stored_ask_order.owner,
-                                role: PartyType::Owner,
-                            }],
-                            ..scope
-                        },
+                        replace_scope_owner(scope, stored_ask_order.owner, true, None)?,
                         vec![env.contract.address],
-                    )?)
+                    )?);
                 }
             };
 
@@ -354,6 +349,8 @@ fn execute_match(
             let scope = ProvenanceQuerier::new(&deps.querier).get_scope(scope_address)?;
 
             messages.push(write_scope(
+                // TODO: Use:
+                // replace_scope_owner(scope, bid_order.owner, true, None)?,
                 Scope {
                     owners: vec![Party {
                         address: bid_order.owner,
@@ -471,7 +468,9 @@ mod tests {
     use cosmwasm_std::{coin, coins, Addr, BankMsg};
     use cosmwasm_std::{CosmosMsg, Uint128};
     use provwasm_mocks::mock_dependencies;
-    use provwasm_std::{NameMsgParams, ProvenanceMsg, ProvenanceMsgParams, ProvenanceRoute};
+    use provwasm_std::{
+        MetadataMsgParams, NameMsgParams, ProvenanceMsg, ProvenanceMsgParams, ProvenanceRoute,
+    };
 
     use crate::contract_info::{ContractInfo, CONTRACT_TYPE, CONTRACT_VERSION};
     use crate::state::{get_bid_storage_read_v2, BaseType};
@@ -756,49 +755,49 @@ mod tests {
                 assert_eq!(response.attributes.len(), 1);
                 assert_eq!(response.attributes[0], attr("action", "create_ask"));
                 assert_eq!(response.messages.len(), 1);
-                // TODO: Uncomment this set of checks once the values are exposed in provwasm for it to compile
-                // match response.messages.first().unwrap().msg {
-                //     CosmosMsg::Custom(ProvenanceMsg {
-                //         params:
-                //             ProvenanceMsgParams::Metadata(
-                //                 provwasm_std::msg::MetadataMsgParams::WriteScope { scope, signers },
-                //             ),
-                //         ..
-                //     }) => {
-                //         assert_eq!(
-                //             1,
-                //             scope.owners.len(),
-                //             "expected the scope to only include one owner after the owner was changed to the contract",
-                //         );
-                //         let scope_owner = scope.owners.first().unwrap();
-                //         assert_eq!(
-                //             MOCK_CONTRACT_ADDR,
-                //             scope_owner.address.as_str(),
-                //             "expected the contract address to be set as the scope owner",
-                //         );
-                //         assert_eq!(
-                //             PartyType::Owner,
-                //             scope_owner.role,
-                //             "expected the contract's role to be that of owner",
-                //         );
-                //         assert_eq!(
-                //             MOCK_CONTRACT_ADDR,
-                //             scope.value_owner_address.as_str(),
-                //             "expected the contract to remain the value owner on the scope",
-                //         );
-                //         assert_eq!(
-                //             1,
-                //             signers.len(),
-                //             "expected only a single signer to be used on the write scope request",
-                //         );
-                //         assert_eq!(
-                //             MOCK_CONTRACT_ADDR,
-                //             signers.first().unwrap().as_str(),
-                //             "expected the signer for the write scope request to be the contract",
-                //         );
-                //     }
-                //     msg => panic!("unexpected message emitted by create ask: {:?}", msg),
-                // };
+                match &response.messages.first().unwrap().msg {
+                    CosmosMsg::Custom(ProvenanceMsg {
+                        params:
+                            ProvenanceMsgParams::Metadata(MetadataMsgParams::WriteScope {
+                                scope,
+                                signers,
+                            }),
+                        ..
+                    }) => {
+                        assert_eq!(
+                            1,
+                            scope.owners.len(),
+                            "expected the scope to only include one owner after the owner was changed to the contract",
+                        );
+                        let scope_owner = scope.owners.first().unwrap();
+                        assert_eq!(
+                            MOCK_CONTRACT_ADDR,
+                            scope_owner.address.as_str(),
+                            "expected the contract address to be set as the scope owner",
+                        );
+                        assert_eq!(
+                            PartyType::Owner,
+                            scope_owner.role,
+                            "expected the contract's role to be that of owner",
+                        );
+                        assert_eq!(
+                            MOCK_CONTRACT_ADDR,
+                            scope.value_owner_address.as_str(),
+                            "expected the contract to remain the value owner on the scope",
+                        );
+                        assert_eq!(
+                            1,
+                            signers.len(),
+                            "expected only a single signer to be used on the write scope request",
+                        );
+                        assert_eq!(
+                            MOCK_CONTRACT_ADDR,
+                            signers.first().unwrap().as_str(),
+                            "expected the signer for the write scope request to be the contract",
+                        );
+                    }
+                    msg => panic!("unexpected message emitted by create ask: {:?}", msg),
+                };
             }
             Err(error) => {
                 panic!("failed to create ask: {:?}", error)
@@ -1263,7 +1262,7 @@ mod tests {
     }
 
     #[test]
-    fn cancel_with_valid_data() {
+    fn cancel_coin_with_valid_data() {
         let mut deps = mock_dependencies(&[]);
         if let Err(error) = set_contract_info(
             &mut deps.storage,
@@ -1338,6 +1337,176 @@ mod tests {
                 denom: "base_1".into(),
                 amount: Uint128::new(200),
             }]),
+            effective_time: Some(Timestamp::default()),
+        };
+
+        // execute create bid
+        if let Err(error) = execute(deps.as_mut(), mock_env(), bidder_info, create_bid_msg) {
+            panic!("unexpected error: {:?}", error)
+        }
+
+        // verify bid order stored
+        let bid_storage = get_bid_storage_read_v2(&deps.storage);
+        assert!(bid_storage.load("bid_id".to_string().as_bytes()).is_ok(),);
+
+        // cancel bid order
+        let bidder_info = mock_info("bidder", &[]);
+
+        let cancel_bid_msg = ExecuteMsg::CancelBid {
+            id: "bid_id".to_string(),
+        };
+
+        let cancel_bid_response = execute(
+            deps.as_mut(),
+            mock_env(),
+            bidder_info.clone(),
+            cancel_bid_msg,
+        );
+
+        match cancel_bid_response {
+            Ok(cancel_bid_response) => {
+                assert_eq!(cancel_bid_response.attributes.len(), 1);
+                assert_eq!(
+                    cancel_bid_response.attributes[0],
+                    attr("action", "cancel_bid")
+                );
+                assert_eq!(cancel_bid_response.messages.len(), 1);
+                assert_eq!(
+                    cancel_bid_response.messages[0].msg,
+                    CosmosMsg::Bank(BankMsg::Send {
+                        to_address: bidder_info.sender.to_string(),
+                        amount: coins(100, "quote_1"),
+                    })
+                );
+            }
+            Err(error) => panic!("unexpected error: {:?}", error),
+        }
+
+        // verify bid order removed from storage
+        let bid_storage = get_bid_storage_read_v2(&deps.storage);
+        assert!(bid_storage.load("bid_id".to_string().as_bytes()).is_err());
+    }
+
+    #[test]
+    fn cancel_scope_with_valid_data() {
+        let mut deps = mock_dependencies(&[]);
+        if let Err(error) = set_contract_info(
+            &mut deps.storage,
+            &ContractInfo::new(
+                Addr::unchecked("contract_admin"),
+                "contract_bind_name".into(),
+                "contract_name".into(),
+            ),
+        ) {
+            panic!("unexpected error: {:?}", error)
+        }
+
+        // create ask data - omit funds because a scope is being provided
+        let asker_info = mock_info("asker", &[]);
+
+        let create_ask_msg = ExecuteMsg::CreateAsk {
+            id: "ask_id".into(),
+            quote: coins(100, "quote_1"),
+            scope_address: Some("scope_address".to_string()),
+        };
+
+        deps.querier.with_scope(Scope {
+            scope_id: "scope_address".to_string(),
+            specification_id: "spec_address".to_string(),
+            owners: vec![Party {
+                address: Addr::unchecked("asker"),
+                role: PartyType::Owner,
+            }],
+            data_access: vec![],
+            value_owner_address: Addr::unchecked(MOCK_CONTRACT_ADDR),
+        });
+
+        // execute create ask
+        if let Err(error) = execute(deps.as_mut(), mock_env(), asker_info, create_ask_msg) {
+            panic!("unexpected error: {:?}", error)
+        }
+
+        // verify ask order stored
+        let ask_storage = get_ask_storage_read_v2(&deps.storage);
+        assert!(ask_storage.load("ask_id".to_string().as_bytes()).is_ok());
+
+        // cancel ask order
+        let asker_info = mock_info("asker", &[]);
+
+        let cancel_ask_msg = ExecuteMsg::CancelAsk {
+            id: "ask_id".to_string(),
+        };
+        let cancel_ask_response = execute(
+            deps.as_mut(),
+            mock_env(),
+            asker_info.clone(),
+            cancel_ask_msg,
+        );
+
+        match cancel_ask_response {
+            Ok(cancel_ask_response) => {
+                assert_eq!(cancel_ask_response.attributes.len(), 1);
+                assert_eq!(
+                    cancel_ask_response.attributes[0],
+                    attr("action", "cancel_ask")
+                );
+                assert_eq!(cancel_ask_response.messages.len(), 1);
+                match &cancel_ask_response.messages.first().unwrap().msg {
+                    CosmosMsg::Custom(ProvenanceMsg {
+                        params:
+                            ProvenanceMsgParams::Metadata(MetadataMsgParams::WriteScope {
+                                scope,
+                                signers,
+                            }),
+                        ..
+                    }) => {
+                        assert_eq!(
+                            1,
+                            scope.owners.len(),
+                            "expected the scope to only include one owner after the owner is swapped back to the original value",
+                        );
+                        let scope_owner = scope.owners.first().unwrap();
+                        assert_eq!(
+                            "asker",
+                            scope_owner.address.as_str(),
+                            "expected the asker address to be set as the scope owner",
+                        );
+                        assert_eq!(
+                            PartyType::Owner,
+                            scope_owner.role,
+                            "expected the asker's role to be that of owner",
+                        );
+                        assert_eq!(
+                            "asker",
+                            scope.value_owner_address.as_str(),
+                            "expected the asker to be set as the value owner after a cancellation",
+                        );
+                        assert_eq!(
+                            1,
+                            signers.len(),
+                            "expected only a single signer to be used on the write scope request",
+                        );
+                        assert_eq!(
+                            MOCK_CONTRACT_ADDR,
+                            signers.first().unwrap().as_str(),
+                            "expected the signer for the write scope request to be the contract",
+                        );
+                    }
+                    msg => panic!("unexpected message emitted by cancel ask: {:?}", msg),
+                };
+            }
+            Err(error) => panic!("unexpected error: {:?}", error),
+        }
+
+        // verify ask order removed from storage
+        let ask_storage = get_ask_storage_read_v2(&deps.storage);
+        assert!(ask_storage.load("ask_id".to_string().as_bytes()).is_err());
+
+        // create bid data
+        let bidder_info = mock_info("bidder", &coins(100, "quote_1"));
+        let create_bid_msg = ExecuteMsg::CreateBid {
+            id: "bid_id".into(),
+            base: BaseType::scope("scope_address"),
             effective_time: Some(Timestamp::default()),
         };
 
