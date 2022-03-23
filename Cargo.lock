@@ -353,7 +353,7 @@ dependencies = [
 [[package]]
 name = "provwasm-mocks"
 version = "1.0.0-beta2"
-source = "git+https://github.com/provenance-io/provwasm?tag=v1.0.0-beta5#1d517d23e6ac36d06106b093a985353d4f2fdcc8"
+source = "git+https://github.com/provenance-io/provwasm?rev=6cbb69600db3a76509862e80934fa14be45872cd#6cbb69600db3a76509862e80934fa14be45872cd"
 dependencies = [
  "cosmwasm-std",
  "provwasm-std",
@@ -363,8 +363,8 @@ dependencies = [
 
 [[package]]
 name = "provwasm-std"
-version = "1.0.0-beta3"
-source = "git+https://github.com/provenance-io/provwasm?tag=v1.0.0-beta5#1d517d23e6ac36d06106b093a985353d4f2fdcc8"
+version = "1.0.0-beta2"
+source = "git+https://github.com/provenance-io/provwasm?rev=6cbb69600db3a76509862e80934fa14be45872cd#6cbb69600db3a76509862e80934fa14be45872cd"
 dependencies = [
  "cosmwasm-std",
  "schemars",
