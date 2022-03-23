@@ -57,10 +57,10 @@ class WalletSigner(networkType: NetworkType, mnemonic: String, passphrase: Strin
 fun Message.toAny() = Any.pack(this, "")
 
 fun main() {
+    // This is just an existing scope spec in testnet that I am using for ease of use, any scope of any specification can be used
     val SCOPE_SPEC_UUID = "fefebe5a-e85d-4b75-857d-56bba1ec142d"
     val CONTRACT_ADDRESS = "tp1fft5c9nll2wkwmulmzzf90rv4ayn990j0qzp2d9cxkhu59yphrgs49secc"
     val SCOPE_UUID = UUID.randomUUID().toString()
-    val HD_PATH = "44'/1'/0'/0/0"
 
     val client = PbClient("pio-testnet-1", URI("grpcs://grpc.test.provenance.io:443"), GasEstimationMethod.MSG_FEE_CALCULATION)
 
