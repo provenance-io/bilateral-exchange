@@ -1,3 +1,4 @@
+use crate::types::ask_base::AskBase;
 use cosmwasm_std::{Coin, Timestamp};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -18,8 +19,8 @@ pub enum ExecuteMsg {
         id: String,
     },
     CreateAsk {
-        id: String,
-        quote: Vec<Coin>,
+        base: AskBase,
+        effective_time: Option<Timestamp>,
     },
     CreateBid {
         id: String,

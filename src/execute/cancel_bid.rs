@@ -1,5 +1,5 @@
-use crate::error::ContractError;
-use crate::state::{get_bid_storage, get_bid_storage_read};
+use crate::storage::state::{get_bid_storage, get_bid_storage_read};
+use crate::types::error::ContractError;
 use cosmwasm_std::{attr, BankMsg, DepsMut, Env, MessageInfo, Response};
 use provwasm_std::{ProvenanceMsg, ProvenanceQuery};
 
@@ -47,9 +47,9 @@ pub fn cancel_bid(
 #[cfg(test)]
 mod tests {
     use crate::contract::execute;
-    use crate::contract_info::{set_contract_info, ContractInfo};
-    use crate::msg::ExecuteMsg;
-    use crate::state::get_bid_storage_read;
+    use crate::storage::contract_info::{set_contract_info, ContractInfo};
+    use crate::storage::state::get_bid_storage_read;
+    use crate::types::msg::ExecuteMsg;
     use cosmwasm_std::testing::{mock_env, mock_info};
     use cosmwasm_std::{attr, coins, Addr, BankMsg, Coin, CosmosMsg, Timestamp, Uint128};
     use provwasm_mocks::mock_dependencies;

@@ -1,5 +1,5 @@
-use crate::error::ContractError;
-use crate::state::{get_ask_storage, get_ask_storage_read};
+use crate::storage::state::{get_ask_storage, get_ask_storage_read};
+use crate::types::error::ContractError;
 use cosmwasm_std::{attr, BankMsg, DepsMut, Env, MessageInfo, Response};
 use provwasm_std::{ProvenanceMsg, ProvenanceQuery};
 
@@ -48,9 +48,10 @@ pub fn cancel_ask(
 mod tests {
     use super::*;
     use crate::contract::execute;
-    use crate::contract_info::{set_contract_info, ContractInfo};
-    use crate::msg::ExecuteMsg;
-    use crate::state::AskOrder;
+    use crate::storage::contract_info::{set_contract_info, ContractInfo};
+    use crate::storage::state::AskOrder;
+    use crate::types::ask_base::AskBase;
+    use crate::types::msg::ExecuteMsg;
     use cosmwasm_std::testing::{mock_env, mock_info};
     use cosmwasm_std::{coins, Addr, CosmosMsg};
     use provwasm_mocks::mock_dependencies;
@@ -73,8 +74,7 @@ mod tests {
         let asker_info = mock_info("asker", &coins(200, "base_1"));
 
         let create_ask_msg = ExecuteMsg::CreateAsk {
-            id: "ask_id".into(),
-            quote: coins(100, "quote_1"),
+            base: AskBase::new_coin("ask_id", coins(100, "quote_1")),
         };
 
         // execute create ask

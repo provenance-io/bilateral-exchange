@@ -3,7 +3,7 @@ use cw_storage_plus::Item;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::error::ContractError;
+use crate::types::error::ContractError;
 
 const NAMESPACE_CONTRACT_INFO: &str = "contract_info";
 pub const CONTRACT_TYPE: &str = env!("CARGO_CRATE_NAME");
@@ -48,7 +48,7 @@ pub fn get_contract_info(store: &dyn Storage) -> StdResult<ContractInfo> {
 mod tests {
     use provwasm_mocks::mock_dependencies;
 
-    use crate::contract_info::{
+    use crate::storage::contract_info::{
         get_contract_info, set_contract_info, ContractInfo, CONTRACT_TYPE, CONTRACT_VERSION,
     };
     use cosmwasm_std::Addr;

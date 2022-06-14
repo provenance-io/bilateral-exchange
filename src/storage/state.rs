@@ -8,6 +8,11 @@ pub static NAMESPACE_ORDER_BID: &[u8] = b"bid";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct AskOrder {
+    pub id: String,
+    pub ask_type: String,
+    pub owner: Addr,
+    pub 
+    
     pub base: Vec<Coin>,
     pub id: String,
     pub owner: Addr,

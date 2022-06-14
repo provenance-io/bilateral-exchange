@@ -1,4 +1,4 @@
-use crate::state::get_bid_storage_read;
+use crate::storage::state::get_bid_storage_read;
 use cosmwasm_std::{to_binary, Binary, Deps, StdResult};
 use provwasm_std::ProvenanceQuery;
 
@@ -10,9 +10,9 @@ pub fn query_bid(deps: Deps<ProvenanceQuery>, id: String) -> StdResult<Binary> {
 mod tests {
     use super::*;
     use crate::contract::query;
-    use crate::contract_info::{set_contract_info, ContractInfo};
-    use crate::msg::QueryMsg;
-    use crate::state::{get_bid_storage, BidOrder};
+    use crate::storage::contract_info::{set_contract_info, ContractInfo};
+    use crate::storage::state::{get_bid_storage, BidOrder};
+    use crate::types::msg::QueryMsg;
     use cosmwasm_std::testing::mock_env;
     use cosmwasm_std::{coins, Addr, Timestamp};
     use provwasm_mocks::mock_dependencies;

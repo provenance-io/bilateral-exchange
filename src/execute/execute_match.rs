@@ -1,9 +1,9 @@
-use crate::contract_info::get_contract_info;
-use crate::error::ContractError;
-use crate::state::{
+use crate::storage::contract_info::get_contract_info;
+use crate::storage::state::{
     get_ask_storage, get_ask_storage_read, get_bid_storage, get_bid_storage_read, AskOrder,
     BidOrder,
 };
+use crate::types::error::ContractError;
 use cosmwasm_std::{attr, BankMsg, Coin, DepsMut, Env, MessageInfo, Response};
 use provwasm_std::{ProvenanceMsg, ProvenanceQuery};
 
@@ -21,7 +21,7 @@ pub fn execute_match(
     }
 
     // return error if id is empty
-    if ask_id.is_empty() | bid_id.is_empty() {
+    if ask_id.is_empty() || bid_id.is_empty() {
         return Err(ContractError::Unauthorized);
     }
 
@@ -92,8 +92,8 @@ fn is_executable(ask_order: &AskOrder, bid_order: &BidOrder) -> bool {
 mod tests {
     use super::*;
     use crate::contract::execute;
-    use crate::contract_info::{set_contract_info, ContractInfo};
-    use crate::msg::ExecuteMsg;
+    use crate::storage::contract_info::{set_contract_info, ContractInfo};
+    use crate::types::msg::ExecuteMsg;
     use cosmwasm_std::testing::{mock_env, mock_info};
     use cosmwasm_std::{coin, coins, Addr, CosmosMsg, Timestamp};
     use provwasm_mocks::mock_dependencies;

@@ -51,18 +51,11 @@
         "create_ask": {
           "type": "object",
           "required": [
-            "id",
-            "quote"
+            "base"
           ],
           "properties": {
-            "id": {
-              "type": "string"
-            },
-            "quote": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Coin"
-              }
+            "base": {
+              "$ref": "#/definitions/AskBase"
             }
           }
         }
@@ -132,6 +125,34 @@
     }
   ],
   "definitions": {
+    "AskBase": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "coin"
+          ],
+          "properties": {
+            "coin": {
+              "$ref": "#/definitions/CoinAskBase"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "marker"
+          ],
+          "properties": {
+            "marker": {
+              "$ref": "#/definitions/MarkerAskBase"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "Coin": {
       "type": "object",
       "required": [
@@ -144,6 +165,43 @@
         },
         "denom": {
           "type": "string"
+        }
+      }
+    },
+    "CoinAskBase": {
+      "type": "object",
+      "required": [
+        "id",
+        "quote"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "quote": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
+          }
+        }
+      }
+    },
+    "MarkerAskBase": {
+      "type": "object",
+      "required": [
+        "denom",
+        "id",
+        "price_per_share"
+      ],
+      "properties": {
+        "denom": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "price_per_share": {
+          "$ref": "#/definitions/Coin"
         }
       }
     },

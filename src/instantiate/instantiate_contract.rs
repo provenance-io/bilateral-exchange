@@ -1,6 +1,6 @@
-use crate::contract_info::{get_contract_info, set_contract_info, ContractInfo};
-use crate::error::ContractError;
-use crate::msg::InstantiateMsg;
+use crate::storage::contract_info::{get_contract_info, set_contract_info, ContractInfo};
+use crate::types::error::ContractError;
+use crate::types::msg::InstantiateMsg;
 use cosmwasm_std::{attr, DepsMut, Env, MessageInfo, Response};
 use provwasm_std::{bind_name, NameBinding, ProvenanceMsg, ProvenanceQuery};
 
@@ -48,7 +48,7 @@ pub fn instantiate_contract(
 mod tests {
     use super::*;
     use crate::contract::instantiate;
-    use crate::contract_info::{CONTRACT_TYPE, CONTRACT_VERSION};
+    use crate::storage::contract_info::{CONTRACT_TYPE, CONTRACT_VERSION};
     use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
     use cosmwasm_std::{Addr, CosmosMsg};
     use provwasm_mocks::mock_dependencies;

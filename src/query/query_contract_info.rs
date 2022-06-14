@@ -1,4 +1,4 @@
-use crate::contract_info::get_contract_info;
+use crate::storage::contract_info::get_contract_info;
 use cosmwasm_std::{to_binary, Binary, Deps, StdResult};
 use provwasm_std::ProvenanceQuery;
 
@@ -10,8 +10,8 @@ pub fn query_contract_info(deps: Deps<ProvenanceQuery>) -> StdResult<Binary> {
 mod tests {
     use super::*;
     use crate::contract::query;
-    use crate::contract_info::{set_contract_info, ContractInfo};
-    use crate::msg::QueryMsg;
+    use crate::storage::contract_info::{set_contract_info, ContractInfo};
+    use crate::types::msg::QueryMsg;
     use cosmwasm_std::testing::mock_env;
     use cosmwasm_std::Addr;
     use provwasm_mocks::mock_dependencies;

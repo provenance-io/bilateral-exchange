@@ -1,14 +1,14 @@
-use crate::error::ContractError;
 use crate::execute::cancel_ask::cancel_ask;
 use crate::execute::cancel_bid::cancel_bid;
 use crate::execute::create_ask::create_ask;
 use crate::execute::create_bid::create_bid;
 use crate::execute::execute_match::execute_match;
 use crate::instantiate::instantiate_contract::instantiate_contract;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::query::query_ask::query_ask;
 use crate::query::query_bid::query_bid;
 use crate::query::query_contract_info::query_contract_info;
+use crate::types::error::ContractError;
+use crate::types::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use cosmwasm_std::{entry_point, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
 use provwasm_std::{ProvenanceMsg, ProvenanceQuery};
 
@@ -32,7 +32,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     match msg {
-        ExecuteMsg::CreateAsk { id, quote } => create_ask(deps, info, id, quote),
+        ExecuteMsg::CreateAsk { base } => create_ask(deps, info, base),
         ExecuteMsg::CreateBid {
             id,
             base,

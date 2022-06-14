@@ -1,5 +1,5 @@
-use crate::error::ContractError;
-use crate::state::{get_bid_storage, BidOrder};
+use crate::storage::state::{get_bid_storage, BidOrder};
+use crate::types::error::ContractError;
 use cosmwasm_std::{attr, to_binary, Coin, DepsMut, MessageInfo, Response, Timestamp};
 use provwasm_std::{ProvenanceMsg, ProvenanceQuery};
 
@@ -44,9 +44,9 @@ pub fn create_bid(
 mod tests {
     use super::*;
     use crate::contract::execute;
-    use crate::contract_info::{set_contract_info, ContractInfo};
-    use crate::msg::ExecuteMsg;
-    use crate::state::get_bid_storage_read;
+    use crate::storage::contract_info::{set_contract_info, ContractInfo};
+    use crate::storage::state::get_bid_storage_read;
+    use crate::types::msg::ExecuteMsg;
     use cosmwasm_std::testing::{mock_env, mock_info};
     use cosmwasm_std::{coins, Addr};
     use provwasm_mocks::mock_dependencies;

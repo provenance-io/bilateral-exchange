@@ -12,6 +12,12 @@ pub enum ContractError {
     #[error("Cannot send funds when executing match")]
     ExecuteWithFunds,
 
+    #[error("Cannot create ask with id: {id}. An ask with that id already exists")]
+    ExistingAskId { id: String },
+
+    #[error("Invalid field encountered: {message}")]
+    InvalidField { message: String },
+
     #[error("Ask base was not sent")]
     MissingAskBase,
 
@@ -23,6 +29,9 @@ pub enum ContractError {
 
     #[error("{0}")]
     Std(#[from] StdError),
+
+    #[error("Contact storage error occurred: {message}")]
+    StorageError { message: String },
 
     #[error("Unauthorized")]
     Unauthorized,
