@@ -1,55 +1,78 @@
-use crate::storage::state::{get_ask_storage, get_ask_storage_read};
+use crate::storage::ask_order::{delete_ask_order_by_id, get_ask_order_by_id, AskCollateral};
+use crate::storage::contract_info::get_contract_info;
 use crate::types::error::ContractError;
-use cosmwasm_std::{attr, BankMsg, DepsMut, Env, MessageInfo, Response};
-use provwasm_std::{ProvenanceMsg, ProvenanceQuery};
+use crate::util::extensions::ResultExtensions;
+use cosmwasm_std::{attr, to_binary, BankMsg, CosmosMsg, DepsMut, Env, MessageInfo, Response};
+use provwasm_std::{grant_marker_access, revoke_marker_access, ProvenanceMsg, ProvenanceQuery};
 
 // cancel ask entrypoint
 pub fn cancel_ask(
     deps: DepsMut<ProvenanceQuery>,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     id: String,
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     // return error if id is empty
     if id.is_empty() {
-        return Err(ContractError::Unauthorized);
+        return ContractError::InvalidFields {
+            messages: vec!["an id must be provided when cancelling an ask".to_string()],
+        }
+        .to_err();
     }
 
     // return error if funds sent
     if !info.funds.is_empty() {
-        return Err(ContractError::CancelWithFunds);
+        return ContractError::InvalidFundsProvided {
+            message: "funds should not be provided when cancelling an ask".to_string(),
+        }
+        .to_err();
     }
-
-    let ask_storage = get_ask_storage_read(deps.storage);
-    let stored_ask_order = ask_storage.load(id.as_bytes());
-    match stored_ask_order {
-        Err(_) => Err(ContractError::Unauthorized),
-        Ok(stored_ask_order) => {
-            if !info.sender.eq(&stored_ask_order.owner) {
-                return Err(ContractError::Unauthorized);
+    let ask_order = get_ask_order_by_id(deps.storage, &id)?;
+    // Only the owner of the ask and the admin can cancel an ask
+    if info.sender != ask_order.owner && get_contract_info(deps.storage)?.admin != ask_order.owner {
+        return ContractError::Unauthorized.to_err();
+    }
+    let mut messages: Vec<CosmosMsg<ProvenanceMsg>> = vec![];
+    match &ask_order.collateral {
+        AskCollateral::Coin { base, .. } => {
+            messages.push(CosmosMsg::Bank(BankMsg::Send {
+                to_address: ask_order.owner.to_string(),
+                amount: base.to_owned(),
+            }));
+        }
+        AskCollateral::Marker {
+            denom,
+            removed_permissions,
+            ..
+        } => {
+            // Restore all permissions that the marker had before it was transferred to the
+            // contract.
+            for permission in removed_permissions {
+                messages.push(grant_marker_access(
+                    denom,
+                    permission.address.to_owned(),
+                    permission.permissions.to_owned(),
+                )?);
             }
-
-            // remove the ask order from storage
-            let mut ask_storage = get_ask_storage(deps.storage);
-            ask_storage.remove(id.as_bytes());
-
-            // 'send base back to owner' message
-            Ok(Response::new()
-                .add_message(BankMsg::Send {
-                    to_address: stored_ask_order.owner.to_string(),
-                    amount: stored_ask_order.base,
-                })
-                .add_attributes(vec![attr("action", "cancel_ask")]))
+            // Remove the contract's ownership of the marker now that it is no longer available for
+            // sale.
+            messages.push(revoke_marker_access(denom, env.contract.address)?);
         }
     }
+    delete_ask_order_by_id(deps.storage, &ask_order.id)?;
+    Response::new()
+        .add_messages(messages)
+        .add_attribute("action", "cancel_ask")
+        .set_data(to_binary(&ask_order)?)
+        .to_ok()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::contract::execute;
+    use crate::storage::ask_order::{insert_ask_order, AskOrder};
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
-    use crate::storage::state::AskOrder;
     use crate::types::ask_base::AskBase;
     use crate::types::msg::ExecuteMsg;
     use cosmwasm_std::testing::{mock_env, mock_info};
@@ -83,8 +106,7 @@ mod tests {
         }
 
         // verify ask order stored
-        let ask_storage = get_ask_storage_read(&deps.storage);
-        assert!(ask_storage.load("ask_id".to_string().as_bytes()).is_ok());
+        assert!(get_ask_order_by_id(deps.as_ref().storage, "ask_id").is_ok());
 
         // cancel ask order
         let asker_info = mock_info("asker", &[]);
@@ -119,8 +141,7 @@ mod tests {
         }
 
         // verify ask order removed from storage
-        let ask_storage = get_ask_storage_read(&deps.storage);
-        assert!(ask_storage.load("ask_id".to_string().as_bytes()).is_err());
+        assert!(get_ask_order_by_id(deps.as_ref().storage, "ask_id").is_err());
     }
 
     #[test]
@@ -181,14 +202,13 @@ mod tests {
         }
 
         // cancel ask order with sender not equal to owner returns ContractError::Unauthorized
-        if let Err(error) = get_ask_storage(&mut deps.storage).save(
-            "ask_id".to_string().as_bytes(),
-            &AskOrder {
-                base: coins(200, "base_1"),
-                id: "ask_id".into(),
-                owner: Addr::unchecked(""),
-                quote: coins(100, "quote_1"),
-            },
+        if let Err(error) = insert_ask_order(
+            &mut deps.storage,
+            &AskOrder::new_unchecked(
+                "ask_id",
+                Addr::unchecked(""),
+                AskCollateral::coin(coins(200, "base_1"), coins(100, "quote_1")),
+            ),
         ) {
             panic!("unexpected error: {:?}", error)
         };

@@ -1,7 +1,8 @@
-use crate::types::ask_base::{ASK_TYPES, COIN_ASK_TYPE, MARKER_ASK_TYPE};
+use crate::types::ask_base::{COIN_ASK_TYPE, MARKER_ASK_TYPE};
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
-use cosmwasm_std::{Addr, Coin, Storage};
+use crate::validation::ask_order_validation::validate_ask_order;
+use cosmwasm_std::{Addr, Coin, StdError, Storage};
 use cw_storage_plus::{Index, IndexList, IndexedMap, MultiIndex};
 use provwasm_std::{AccessGrant, MarkerAccess, MarkerStatus};
 use schemars::JsonSchema;
@@ -13,18 +14,6 @@ const NAMESPACE_TYPE_IDX: &str = "ask__type";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum AskCollateral {
-    Coin {
-        base: Vec<Coin>,
-    },
-    Marker {
-        denom: String,
-        removed_permissions: Vec<AccessGrant>,
-    },
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
 pub struct AskOrder {
     pub id: String,
     pub ask_type: String,
@@ -32,34 +21,26 @@ pub struct AskOrder {
     pub collateral: AskCollateral,
 }
 impl AskOrder {
-    pub fn new<S1: Into<String>, S2: Into<String>>(
-        id: S1,
-        ask_type: S2,
+    pub fn new<S: Into<String>>(
+        id: S,
         owner: Addr,
         collateral: AskCollateral,
     ) -> Result<Self, ContractError> {
-        let ask_type = ask_type.into();
-        let valid_structure = match &ask_type {
-            COIN_ASK_TYPE => matches!(collateral, AskCollateral::Coin { .. }),
-            MARKER_ASK_TYPE => matches!(collateral, AskCollateral::Marker { .. }),
-            _ => false,
-        };
-        if !valid_structure {
-            return ContractError::InvalidField {
-                message: format!(
-                    "Invalid storage structure provided for ask type [{}]",
-                    ask_type
-                ),
-            }
-            .to_err();
-        }
+        let ask_order = Self::new_unchecked(id, owner, collateral);
+        validate_ask_order(&ask_order)?;
+        ask_order.to_ok()
+    }
+
+    pub fn new_unchecked<S: Into<String>>(id: S, owner: Addr, collateral: AskCollateral) -> Self {
         Self {
             id: id.into(),
-            ask_type: ask_type.into(),
+            ask_type: match collateral {
+                AskCollateral::Coin { .. } => COIN_ASK_TYPE.to_string(),
+                AskCollateral::Marker { .. } => MARKER_ASK_TYPE.to_string(),
+            },
             owner,
             collateral,
         }
-        .to_ok()
     }
 
     pub fn get_pk(&self) -> &[u8] {
@@ -67,23 +48,35 @@ impl AskOrder {
     }
 }
 
-fn validate_ask_order(ask_order: &AskOrder) -> Result<(), ContractError> {
-    if ask_order.id.is_empty() {
-        return ContractError::InvalidField {
-            message: "id for AskOrder must not be empty".to_string(),
-        }
-        .to_err();
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AskCollateral {
+    Coin {
+        base: Vec<Coin>,
+        quote: Vec<Coin>,
+    },
+    Marker {
+        address: Addr,
+        denom: String,
+        removed_permissions: Vec<AccessGrant>,
+    },
+}
+impl AskCollateral {
+    pub fn coin(base: Vec<Coin>, quote: Vec<Coin>) -> Self {
+        Self::Coin { base, quote }
     }
-    if !ASK_TYPES.contains(&&**&ask_order.ask_type) {
-        return ContractError::InvalidField {
-            message: format!(
-                "ask type [{}] for AskOrder is invalid. Must be one of: {:?}",
-                ask_order.ask_type, ASK_TYPES
-            ),
+
+    pub fn marker<S: Into<String>>(
+        address: Addr,
+        denom: S,
+        removed_permissions: Vec<AccessGrant>,
+    ) -> Self {
+        Self::Marker {
+            address,
+            denom: denom.into(),
+            removed_permissions,
         }
-        .to_err();
     }
-    ().to_ok()
 }
 
 pub struct AskOrderIndices<'a> {
@@ -113,7 +106,10 @@ pub fn ask_orders<'a>() -> IndexedMap<'a, &'a [u8], AskOrder, AskOrderIndices<'a
     IndexedMap::new(NAMESPACE_ASK_PK, indices)
 }
 
-pub fn insert_ask(storage: &mut dyn Storage, ask_order: &AskOrder) -> Result<(), ContractError> {
+pub fn insert_ask_order(
+    storage: &mut dyn Storage,
+    ask_order: &AskOrder,
+) -> Result<(), ContractError> {
     let state = ask_orders();
     if let Ok(existing_ask) = state.load(storage, ask_order.get_pk()) {
         return ContractError::StorageError {
@@ -128,4 +124,29 @@ pub fn insert_ask(storage: &mut dyn Storage, ask_order: &AskOrder) -> Result<(),
     state
         .replace(storage, ask_order.get_pk(), Some(ask_order), None)?
         .to_ok()
+}
+
+pub fn get_ask_order_by_id<S: Into<String>>(
+    storage: &dyn Storage,
+    id: S,
+) -> Result<AskOrder, ContractError> {
+    let id = id.into();
+    ask_orders()
+        .load(storage, id.as_bytes())
+        .map_err(|e| ContractError::StorageError {
+            message: format!("failed to find AskOrder by id [{}]: {:?}", id, e),
+        })
+}
+
+pub fn delete_ask_order_by_id<S: Into<String>>(
+    storage: &mut dyn Storage,
+    id: S,
+) -> Result<(), ContractError> {
+    let id = id.into();
+    ask_orders()
+        .remove(storage, id.as_bytes())
+        .map_err(|e| ContractError::StorageError {
+            message: format!("failed to remove AskOrder by id [{}]: {:?}", id, e),
+        })?;
+    ().to_ok()
 }

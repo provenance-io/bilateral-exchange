@@ -1,17 +1,18 @@
-use crate::storage::state::get_ask_storage_read;
+use crate::storage::ask_order::get_ask_order_by_id;
 use cosmwasm_std::{to_binary, Binary, Deps, StdResult};
 use provwasm_std::ProvenanceQuery;
 
 pub fn query_ask(deps: Deps<ProvenanceQuery>, id: String) -> StdResult<Binary> {
-    to_binary(&get_ask_storage_read(deps.storage).load(id.as_bytes())?)
+    to_binary(&get_ask_order_by_id(deps.storage, id)?)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::contract::query;
+    use crate::storage::ask_order::{insert_ask_order, AskCollateral, AskOrder};
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
-    use crate::storage::state::{get_ask_storage, AskOrder};
+    use crate::types::ask_base::COIN_ASK_TYPE;
     use crate::types::msg::QueryMsg;
     use cosmwasm_std::testing::mock_env;
     use cosmwasm_std::{coins, Addr};
@@ -34,14 +35,16 @@ mod tests {
 
         // store valid ask order
         let ask_order = AskOrder {
-            base: coins(200, "base_1"),
             id: "ask_id".into(),
+            ask_type: COIN_ASK_TYPE.to_string(),
             owner: Addr::unchecked("asker"),
-            quote: coins(100, "quote_1"),
+            collateral: AskCollateral::Coin {
+                base: coins(200, "base_1"),
+                quote: coins(100, "quote_1"),
+            },
         };
 
-        let mut ask_storage = get_ask_storage(&mut deps.storage);
-        if let Err(error) = ask_storage.save(ask_order.id.as_bytes(), &ask_order) {
+        if let Err(error) = insert_ask_order(deps.as_mut().storage, &ask_order) {
             panic!("unexpected error: {:?}", error)
         };
 

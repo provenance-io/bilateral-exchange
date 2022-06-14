@@ -1,0 +1,54 @@
+use crate::types::error::ContractError;
+use crate::util::extensions::ResultExtensions;
+use crate::util::provenance_utilities::{get_single_marker_coin_holding, marker_has_admin};
+use cosmwasm_std::{Addr, MessageInfo};
+use provwasm_std::{Marker, MarkerStatus};
+
+pub fn validate_marker_for_ask(
+    marker: &Marker,
+    original_owner_address: &Addr,
+    contract_address: &Addr,
+) -> Result<(), ContractError> {
+    if !marker_has_admin(&marker, original_owner_address) {
+        return ContractError::InvalidMarker {
+            message: format!(
+                "expected sender [{}] to have admin privileges on marker [{}]",
+                original_owner_address.as_str(),
+                marker.address.as_str(),
+            ),
+        }
+        .to_err();
+    }
+    if !marker_has_admin(&marker, contract_address) {
+        return ContractError::InvalidMarker {
+            message: format!(
+                "expected this contract [{}] to have admin privileges on marker [{}]",
+                contract_address.as_str(),
+                marker.address.as_str(),
+            ),
+        }
+        .to_err();
+    }
+    if marker.status != MarkerStatus::Active {
+        return ContractError::InvalidMarker {
+            message: format!(
+                "expected marker [{}] to be active, but was in status [{:?}]",
+                marker.address.as_str(),
+                marker.status,
+            ),
+        }
+        .to_err();
+    }
+    let marker_coin = get_single_marker_coin_holding(&marker)?;
+    if marker_coin.amount.u128() == 0 {
+        return ContractError::InvalidMarker {
+            message: format!(
+                "expected marker [{}] to hold at least one of its supply of denom [{}], but it had [{}]",
+                marker.address.as_str(),
+                marker.denom,
+                marker_coin.amount.u128(),
+            )
+        }.to_err();
+    }
+    ().to_ok()
+}

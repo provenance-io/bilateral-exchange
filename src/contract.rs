@@ -32,7 +32,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     match msg {
-        ExecuteMsg::CreateAsk { base } => create_ask(deps, info, base),
+        ExecuteMsg::CreateAsk { base } => create_ask(deps, info, env, base),
         ExecuteMsg::CreateBid {
             id,
             base,

@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 
 pub const COIN_ASK_TYPE: &str = "coin";
 pub const MARKER_ASK_TYPE: &str = "marker";
-pub const ASK_TYPES: [&str; 2] = [COIN_ASK_TYPE, MARKER_ASK_TYPE];
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]

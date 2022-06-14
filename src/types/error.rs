@@ -15,11 +15,14 @@ pub enum ContractError {
     #[error("Cannot create ask with id: {id}. An ask with that id already exists")]
     ExistingAskId { id: String },
 
-    #[error("Invalid field encountered: {message}")]
-    InvalidField { message: String },
+    #[error("Field issues encountered: {messages:?}")]
+    InvalidFields { messages: Vec<String> },
 
-    #[error("Ask base was not sent")]
-    MissingAskBase,
+    #[error("Invalid funds provided: {message}")]
+    InvalidFundsProvided { message: String },
+
+    #[error("Invalid marker: {message}")]
+    InvalidMarker { message: String },
 
     #[error("Missing field: {field:?}")]
     MissingField { field: String },

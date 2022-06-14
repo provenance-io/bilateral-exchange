@@ -20,7 +20,7 @@ pub enum ExecuteMsg {
     },
     CreateAsk {
         base: AskBase,
-        effective_time: Option<Timestamp>,
+        // effective_time: Option<Timestamp>,
     },
     CreateBid {
         id: String,
