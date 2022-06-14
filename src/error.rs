@@ -4,13 +4,13 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum ContractError {
     #[error("Ask Order does not match Bid Order")]
-    AskBidMismatch {},
+    AskBidMismatch,
 
     #[error("Cannot send funds when canceling order")]
-    CancelWithFunds {},
+    CancelWithFunds,
 
     #[error("Cannot send funds when executing match")]
-    ExecuteWithFunds {},
+    ExecuteWithFunds,
 
     #[error("Ask base was not sent")]
     MissingAskBase,
@@ -25,5 +25,5 @@ pub enum ContractError {
     Std(#[from] StdError),
 
     #[error("Unauthorized")]
-    Unauthorized {},
+    Unauthorized,
 }

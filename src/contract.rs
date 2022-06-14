@@ -52,6 +52,6 @@ pub fn query(deps: Deps<ProvenanceQuery>, _env: Env, msg: QueryMsg) -> StdResult
     match msg {
         QueryMsg::GetAsk { id } => query_ask(deps, id),
         QueryMsg::GetBid { id } => query_bid(deps, id),
-        QueryMsg::GetContractInfo {} => qußery_contract_info(deps),
+        QueryMsg::GetContractInfo {} => query_contract_info(deps),
     }
 }

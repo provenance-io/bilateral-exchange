@@ -17,36 +17,36 @@ pub fn execute_match(
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     // only the admin may execute matches
     if info.sender != get_contract_info(deps.storage)?.admin {
-        return Err(ContractError::Unauthorized {});
+        return Err(ContractError::Unauthorized);
     }
 
     // return error if id is empty
     if ask_id.is_empty() | bid_id.is_empty() {
-        return Err(ContractError::Unauthorized {});
+        return Err(ContractError::Unauthorized);
     }
 
     // return error if funds sent
     if !info.funds.is_empty() {
-        return Err(ContractError::ExecuteWithFunds {});
+        return Err(ContractError::ExecuteWithFunds);
     }
 
     let ask_storage_read = get_ask_storage_read(deps.storage);
     let ask_order_result = ask_storage_read.load(ask_id.as_bytes());
     if ask_order_result.is_err() {
-        return Err(ContractError::AskBidMismatch {});
+        return Err(ContractError::AskBidMismatch);
     }
 
     let bid_storage_read = get_bid_storage_read(deps.storage);
     let bid_order_result = bid_storage_read.load(bid_id.as_bytes());
     if bid_order_result.is_err() {
-        return Err(ContractError::AskBidMismatch {});
+        return Err(ContractError::AskBidMismatch);
     }
 
     let ask_order = ask_order_result.unwrap();
     let bid_order = bid_order_result.unwrap();
 
     if !is_executable(&ask_order, &bid_order) {
-        return Err(ContractError::AskBidMismatch {});
+        return Err(ContractError::AskBidMismatch);
     }
 
     // 'send quote to asker' and 'send base to bidder' messages
@@ -298,7 +298,7 @@ mod tests {
         );
 
         match execute_response {
-            Err(ContractError::Unauthorized {}) => {}
+            Err(ContractError::Unauthorized) => {}
             Err(error) => panic!("unexpected error: {:?}", error),
             Ok(_) => panic!("expected error, but execute_response ok"),
         }
@@ -317,7 +317,7 @@ mod tests {
         );
 
         match execute_response {
-            Err(ContractError::AskBidMismatch {}) => {}
+            Err(ContractError::AskBidMismatch) => {}
             Err(error) => panic!("unexpected error: {:?}", error),
             Ok(_) => panic!("expected error, but execute_response ok"),
         }
@@ -336,7 +336,7 @@ mod tests {
         );
 
         match execute_response {
-            Err(ContractError::AskBidMismatch {}) => {}
+            Err(ContractError::AskBidMismatch) => {}
             Err(error) => panic!("unexpected error: {:?}", error),
             Ok(_) => panic!("expected error, but execute_response ok"),
         }
@@ -355,7 +355,7 @@ mod tests {
         );
 
         match execute_response {
-            Err(ContractError::AskBidMismatch {}) => {}
+            Err(ContractError::AskBidMismatch) => {}
             Err(error) => panic!("unexpected error: {:?}", error),
             Ok(_) => panic!("expected error, but execute_response ok"),
         }
@@ -374,7 +374,7 @@ mod tests {
         );
 
         match execute_response {
-            Err(ContractError::ExecuteWithFunds {}) => {}
+            Err(ContractError::ExecuteWithFunds) => {}
             Err(error) => panic!("unexpected error: {:?}", error),
             Ok(_) => panic!("expected error, but execute_response ok"),
         }

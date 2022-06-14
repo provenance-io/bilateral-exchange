@@ -12,21 +12,21 @@ pub fn cancel_ask(
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     // return error if id is empty
     if id.is_empty() {
-        return Err(ContractError::Unauthorized {});
+        return Err(ContractError::Unauthorized);
     }
 
     // return error if funds sent
     if !info.funds.is_empty() {
-        return Err(ContractError::CancelWithFunds {});
+        return Err(ContractError::CancelWithFunds);
     }
 
     let ask_storage = get_ask_storage_read(deps.storage);
     let stored_ask_order = ask_storage.load(id.as_bytes());
     match stored_ask_order {
-        Err(_) => Err(ContractError::Unauthorized {}),
+        Err(_) => Err(ContractError::Unauthorized),
         Ok(stored_ask_order) => {
             if !info.sender.eq(&stored_ask_order.owner) {
-                return Err(ContractError::Unauthorized {});
+                return Err(ContractError::Unauthorized);
             }
 
             // remove the ask order from storage
@@ -52,7 +52,7 @@ mod tests {
     use crate::msg::ExecuteMsg;
     use crate::state::AskOrder;
     use cosmwasm_std::testing::{mock_env, mock_info};
-    use cosmwasm_std::{coins, Addr, Coin, CosmosMsg, Timestamp, Uint128};
+    use cosmwasm_std::{coins, Addr, CosmosMsg};
     use provwasm_mocks::mock_dependencies;
 
     #[test]
@@ -150,7 +150,7 @@ mod tests {
 
         match cancel_response {
             Err(error) => match error {
-                ContractError::Unauthorized {} => {}
+                ContractError::Unauthorized => {}
                 _ => {
                     panic!("unexpected error: {:?}", error)
                 }
@@ -172,7 +172,7 @@ mod tests {
 
         match cancel_response {
             Err(error) => match error {
-                ContractError::Unauthorized {} => {}
+                ContractError::Unauthorized => {}
                 _ => {
                     panic!("unexpected error: {:?}", error)
                 }
@@ -200,7 +200,7 @@ mod tests {
 
         match cancel_response {
             Err(error) => match error {
-                ContractError::Unauthorized {} => {}
+                ContractError::Unauthorized => {}
                 _ => {
                     panic!("unexpected error: {:?}", error)
                 }
@@ -218,7 +218,7 @@ mod tests {
 
         match cancel_response {
             Err(error) => match error {
-                ContractError::CancelWithFunds {} => {}
+                ContractError::CancelWithFunds => {}
                 _ => {
                     panic!("unexpected error: {:?}", error)
                 }

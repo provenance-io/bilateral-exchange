@@ -12,12 +12,12 @@ pub fn cancel_bid(
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     // return error if id is empty
     if id.is_empty() {
-        return Err(ContractError::Unauthorized {});
+        return Err(ContractError::Unauthorized);
     }
 
     // return error if funds sent
     if !info.funds.is_empty() {
-        return Err(ContractError::CancelWithFunds {});
+        return Err(ContractError::CancelWithFunds);
     }
 
     let bid_storage = get_bid_storage_read(deps.storage);
@@ -25,7 +25,7 @@ pub fn cancel_bid(
     match stored_bid_order {
         Ok(stored_bid_order) => {
             if !info.sender.eq(&stored_bid_order.owner) {
-                return Err(ContractError::Unauthorized {});
+                return Err(ContractError::Unauthorized);
             }
 
             // remove the ask order from storage
@@ -40,7 +40,7 @@ pub fn cancel_bid(
                 })
                 .add_attributes(vec![attr("action", "cancel_bid")]))
         }
-        Err(_) => Err(ContractError::Unauthorized {}),
+        Err(_) => Err(ContractError::Unauthorized),
     }
 }
 

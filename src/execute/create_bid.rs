@@ -208,7 +208,7 @@ mod tests {
         match create_bid_response {
             Ok(_) => panic!("expected error, but create_bid_response ok"),
             Err(error) => match error {
-                ContractError::MissingBidQuote {} => {}
+                ContractError::MissingBidQuote => {}
                 error => panic!("unexpected error: {:?}", error),
             },
         }

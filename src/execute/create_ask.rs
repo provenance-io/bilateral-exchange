@@ -221,7 +221,7 @@ mod tests {
         match create_ask_response {
             Ok(_) => panic!("expected error, but execute_create_ask_response ok"),
             Err(error) => match error {
-                ContractError::MissingAskBase {} => {}
+                ContractError::MissingAskBase => {}
                 error => panic!("unexpected error: {:?}", error),
             },
         }
