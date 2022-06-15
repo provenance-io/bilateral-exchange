@@ -1,11 +1,16 @@
-use crate::storage::ask_order::{get_ask_order_by_id, insert_ask_order, AskCollateral, AskOrder};
+use crate::storage::ask_order_storage::{get_ask_order_by_id, insert_ask_order};
 use crate::types::ask::{Ask, CoinAsk, MarkerAsk};
+use crate::types::ask_collateral::AskCollateral;
+use crate::types::ask_order::AskOrder;
 use crate::types::error::ContractError;
 use crate::types::request_descriptor::RequestDescriptor;
 use crate::util::extensions::ResultExtensions;
+use crate::util::provenance_utilities::get_single_marker_coin_holding;
 use crate::validation::marker_validation::validate_marker_for_ask;
 use cosmwasm_std::{to_binary, CosmosMsg, DepsMut, Env, MessageInfo, Response};
-use provwasm_std::{revoke_marker_access, ProvenanceMsg, ProvenanceQuerier, ProvenanceQuery};
+use provwasm_std::{
+    revoke_marker_access, AccessGrant, ProvenanceMsg, ProvenanceQuerier, ProvenanceQuery,
+};
 
 pub fn create_ask(
     deps: DepsMut<ProvenanceQuery>,
@@ -100,16 +105,17 @@ fn create_marker_ask_collateral(
         )?);
     }
     AskCreationData {
-        collateral: AskCollateral::Marker {
-            address: marker.address,
-            denom: marker.denom,
-            quote_per_share: marker_ask.quote_per_share.to_owned(),
-            removed_permissions: marker
+        collateral: AskCollateral::marker(
+            marker.address.clone(),
+            &marker.denom,
+            get_single_marker_coin_holding(&marker)?.amount.u128(),
+            &marker_ask.quote_per_share,
+            &marker
                 .permissions
                 .into_iter()
                 .filter(|perm| perm.address != env.contract.address)
-                .collect(),
-        },
+                .collect::<Vec<AccessGrant>>(),
+        ),
         messages,
     }
     .to_ok()
@@ -119,7 +125,7 @@ fn create_marker_ask_collateral(
 mod tests {
     use super::*;
     use crate::contract::execute;
-    use crate::storage::ask_order::get_ask_order_by_id;
+    use crate::storage::ask_order_storage::get_ask_order_by_id;
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
     use crate::types::constants::ASK_TYPE_COIN;
     use crate::types::msg::ExecuteMsg;
@@ -182,10 +188,7 @@ mod tests {
                             id,
                             ask_type: ASK_TYPE_COIN.to_string(),
                             owner: asker_info.sender,
-                            collateral: AskCollateral::Coin {
-                                base: asker_info.funds,
-                                quote,
-                            },
+                            collateral: AskCollateral::coin(&asker_info.funds, &quote),
                             descriptor: None,
                         }
                     )

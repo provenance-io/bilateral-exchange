@@ -1,4 +1,5 @@
-use crate::storage::bid_order::{BidCollateral, BidOrder};
+use crate::types::bid_collateral::BidCollateral;
+use crate::types::bid_order::BidOrder;
 use crate::types::constants::{BID_TYPE_COIN, BID_TYPE_MARKER};
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
@@ -14,7 +15,7 @@ pub fn validate_bid_order(bid_order: &BidOrder) -> Result<(), ContractError> {
     }
     match bid_order.bid_type.as_str() {
         BID_TYPE_COIN => {
-            if !matches!(bid_order.collateral, BidCollateral::Coin { .. }) {
+            if !matches!(bid_order.collateral, BidCollateral::Coin(_)) {
                 invalid_field_messages.push(format!(
                     "bid type [{}] for BidOrder [{}] is invalid. type requires collateral of type BidCollateral::Coin",
                     bid_order.bid_type, bid_order.id,
@@ -22,7 +23,7 @@ pub fn validate_bid_order(bid_order: &BidOrder) -> Result<(), ContractError> {
             }
         }
         BID_TYPE_MARKER => {
-            if !matches!(bid_order.collateral, BidCollateral::Marker { .. }) {
+            if !matches!(bid_order.collateral, BidCollateral::Marker(_)) {
                 invalid_field_messages.push(format!(
                    "bid type [{}] for BidOrder [{}] is invalid. type requires collateral of type BidCollateral::Marker",
                    bid_order.bid_type, bid_order.id,
@@ -63,51 +64,50 @@ pub fn validate_bid_order(bid_order: &BidOrder) -> Result<(), ContractError> {
         messages
     };
     match &bid_order.collateral {
-        BidCollateral::Coin { base, quote } => {
-            if base.is_empty() {
+        BidCollateral::Coin(collateral) => {
+            if collateral.base.is_empty() {
                 invalid_field_messages.push(format!(
                     "BidCollateral for BidOrder [{}] of type coin must include base funds",
                     bid_order.id,
                 ));
                 invalid_field_messages.append(
-                    &mut base
+                    &mut collateral
+                        .base
                         .iter()
                         .flat_map(|coin| validate_coin(coin, "BidCollateral Base Coin"))
                         .collect(),
                 );
             }
-            if quote.is_empty() {
+            if collateral.quote.is_empty() {
                 invalid_field_messages.push(format!(
                     "BidCollateral for BidOrder [{}] of type coin must include base funds",
                     bid_order.id,
                 ));
                 invalid_field_messages.append(
-                    &mut quote
+                    &mut collateral
+                        .quote
                         .iter()
                         .flat_map(|coin| validate_coin(coin, "BidCollateral Quote Coin"))
                         .collect(),
                 );
             }
         }
-        BidCollateral::Marker {
-            address,
-            denom,
-            quote,
-        } => {
-            if address.as_str().is_empty() {
+        BidCollateral::Marker(collateral) => {
+            if collateral.address.as_str().is_empty() {
                 invalid_field_messages.push(format!(
                     "BidCollateral for BidOrder [{}] of type marker must include a valid marker address",
                     bid_order.id,
                 ));
             }
-            if denom.is_empty() {
+            if collateral.denom.is_empty() {
                 invalid_field_messages.push(format!(
                     "BidCollateral for BidOrder [{}] of type marker must include a valid marker denom",
                     bid_order.id,
                 ));
             }
             invalid_field_messages.append(
-                &mut quote
+                &mut collateral
+                    .quote
                     .iter()
                     .flat_map(|coin| validate_coin(coin, "BidCollateral Quote Coin"))
                     .collect(),
@@ -117,7 +117,7 @@ pub fn validate_bid_order(bid_order: &BidOrder) -> Result<(), ContractError> {
     if invalid_field_messages.is_empty() {
         ().to_ok()
     } else {
-        ContractError::InvalidFields {
+        ContractError::ValidationError {
             messages: invalid_field_messages,
         }
         .to_err()

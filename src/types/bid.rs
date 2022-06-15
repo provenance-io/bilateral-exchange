@@ -1,5 +1,5 @@
 use crate::types::constants::{BID_TYPE_COIN, BID_TYPE_MARKER};
-use cosmwasm_std::{Coin, Timestamp};
+use cosmwasm_std::Coin;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

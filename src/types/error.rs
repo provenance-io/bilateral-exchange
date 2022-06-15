@@ -15,8 +15,8 @@ pub enum ContractError {
     #[error("Cannot create [{id_type}] with id [{id}]. One with that id already exists")]
     ExistingId { id_type: String, id: String },
 
-    #[error("Field issues encountered: {messages:?}")]
-    InvalidFields { messages: Vec<String> },
+    #[error("Validation failed with messages: {messages:?}")]
+    ValidationError { messages: Vec<String> },
 
     #[error("Invalid funds provided: {message}")]
     InvalidFundsProvided { message: String },

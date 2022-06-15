@@ -1,5 +1,6 @@
-use crate::storage::bid_order::{delete_bid_order_by_id, get_bid_order_by_id, BidCollateral};
+use crate::storage::bid_order_storage::{delete_bid_order_by_id, get_bid_order_by_id};
 use crate::storage::contract_info::get_contract_info;
+use crate::types::bid_collateral::BidCollateral;
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::{to_binary, BankMsg, DepsMut, Env, MessageInfo, Response};
@@ -14,7 +15,7 @@ pub fn cancel_bid(
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     // return error if id is empty
     if id.is_empty() {
-        return ContractError::InvalidFields {
+        return ContractError::ValidationError {
             messages: vec!["an id must be provided when cancelling a bid".to_string()],
         }
         .to_err();
@@ -33,8 +34,8 @@ pub fn cancel_bid(
         return ContractError::Unauthorized.to_err();
     }
     let coin_to_send = match &bid_order.collateral {
-        BidCollateral::Coin { quote, .. } => quote.to_owned(),
-        BidCollateral::Marker { quote, .. } => quote.to_owned(),
+        BidCollateral::Coin(collateral) => collateral.quote.to_owned(),
+        BidCollateral::Marker(collateral) => collateral.quote.to_owned(),
     };
     // Remove the bid order from storage now that it is no longer needed
     delete_bid_order_by_id(deps.storage, &id)?;
@@ -51,7 +52,7 @@ pub fn cancel_bid(
 #[cfg(test)]
 mod tests {
     use crate::contract::execute;
-    use crate::storage::bid_order::get_bid_order_by_id;
+    use crate::storage::bid_order_storage::get_bid_order_by_id;
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
     use crate::types::bid::Bid;
     use crate::types::msg::ExecuteMsg;

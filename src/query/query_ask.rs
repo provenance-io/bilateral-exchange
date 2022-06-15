@@ -1,4 +1,4 @@
-use crate::storage::ask_order::get_ask_order_by_id;
+use crate::storage::ask_order_storage::get_ask_order_by_id;
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::{to_binary, Binary, Deps};
@@ -12,8 +12,10 @@ pub fn query_ask(deps: Deps<ProvenanceQuery>, id: String) -> Result<Binary, Cont
 mod tests {
     use super::*;
     use crate::contract::query;
-    use crate::storage::ask_order::{insert_ask_order, AskCollateral, AskOrder};
+    use crate::storage::ask_order_storage::insert_ask_order;
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
+    use crate::types::ask_collateral::AskCollateral;
+    use crate::types::ask_order::AskOrder;
     use crate::types::constants::ASK_TYPE_COIN;
     use crate::types::msg::QueryMsg;
     use crate::types::request_descriptor::RequestDescriptor;
@@ -41,10 +43,7 @@ mod tests {
             id: "ask_id".into(),
             ask_type: ASK_TYPE_COIN.to_string(),
             owner: Addr::unchecked("asker"),
-            collateral: AskCollateral::Coin {
-                base: coins(200, "base_1"),
-                quote: coins(100, "quote_1"),
-            },
+            collateral: AskCollateral::coin(&coins(200, "base_1"), &coins(100, "quote_1")),
             descriptor: Some(RequestDescriptor {
                 description: Some("a very nice description".to_string()),
                 effective_time: Some(Timestamp::default()),

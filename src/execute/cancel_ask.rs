@@ -1,5 +1,6 @@
-use crate::storage::ask_order::{delete_ask_order_by_id, get_ask_order_by_id, AskCollateral};
+use crate::storage::ask_order_storage::{delete_ask_order_by_id, get_ask_order_by_id};
 use crate::storage::contract_info::get_contract_info;
+use crate::types::ask_collateral::AskCollateral;
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::{to_binary, BankMsg, CosmosMsg, DepsMut, Env, MessageInfo, Response};
@@ -14,7 +15,7 @@ pub fn cancel_ask(
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     // return error if id is empty
     if id.is_empty() {
-        return ContractError::InvalidFields {
+        return ContractError::ValidationError {
             messages: vec!["an id must be provided when cancelling an ask".to_string()],
         }
         .to_err();
@@ -34,29 +35,28 @@ pub fn cancel_ask(
     }
     let mut messages: Vec<CosmosMsg<ProvenanceMsg>> = vec![];
     match &ask_order.collateral {
-        AskCollateral::Coin { base, .. } => {
+        AskCollateral::Coin(collateral) => {
             messages.push(CosmosMsg::Bank(BankMsg::Send {
                 to_address: ask_order.owner.to_string(),
-                amount: base.to_owned(),
+                amount: collateral.base.to_owned(),
             }));
         }
-        AskCollateral::Marker {
-            denom,
-            removed_permissions,
-            ..
-        } => {
+        AskCollateral::Marker(collateral) => {
             // Restore all permissions that the marker had before it was transferred to the
             // contract.
-            for permission in removed_permissions {
+            for permission in &collateral.removed_permissions {
                 messages.push(grant_marker_access(
-                    denom,
+                    &collateral.denom,
                     permission.address.to_owned(),
                     permission.permissions.to_owned(),
                 )?);
             }
             // Remove the contract's ownership of the marker now that it is no longer available for
             // sale.
-            messages.push(revoke_marker_access(denom, env.contract.address)?);
+            messages.push(revoke_marker_access(
+                &collateral.denom,
+                env.contract.address,
+            )?);
         }
     }
     delete_ask_order_by_id(deps.storage, &ask_order.id)?;
@@ -71,9 +71,10 @@ pub fn cancel_ask(
 mod tests {
     use super::*;
     use crate::contract::execute;
-    use crate::storage::ask_order::{insert_ask_order, AskOrder};
+    use crate::storage::ask_order_storage::insert_ask_order;
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
     use crate::types::ask::Ask;
+    use crate::types::ask_order::AskOrder;
     use crate::types::msg::ExecuteMsg;
     use cosmwasm_std::testing::{mock_env, mock_info};
     use cosmwasm_std::{attr, coins, Addr, CosmosMsg};
@@ -172,7 +173,7 @@ mod tests {
         .expect_err("expected an error to occur when a blank id is provided");
 
         match cancel_response {
-            ContractError::InvalidFields { messages } => {
+            ContractError::ValidationError { messages } => {
                 assert_eq!(1, messages.len());
                 assert_eq!(
                     "an id must be provided when cancelling an ask",
@@ -198,7 +199,7 @@ mod tests {
         match cancel_response {
             ContractError::StorageError { message } => {
                 assert_eq!(
-                    "failed to find AskOrder by id [unknown_id]: NotFound { kind: \"bilateral_exchange::storage::ask_order::AskOrder\" }",
+                    "failed to find AskOrder by id [unknown_id]: NotFound { kind: \"bilateral_exchange::types::ask_order::AskOrder\" }",
                     message,
                 );
             }

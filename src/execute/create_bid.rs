@@ -1,5 +1,7 @@
-use crate::storage::bid_order::{get_bid_order_by_id, insert_bid_order, BidCollateral, BidOrder};
+use crate::storage::bid_order_storage::{get_bid_order_by_id, insert_bid_order};
 use crate::types::bid::{Bid, CoinBid, MarkerBid};
+use crate::types::bid_collateral::BidCollateral;
+use crate::types::bid_order::BidOrder;
 use crate::types::error::ContractError;
 use crate::types::request_descriptor::RequestDescriptor;
 use crate::util::extensions::ResultExtensions;
@@ -151,10 +153,7 @@ mod tests {
                             id,
                             bid_type: BID_TYPE_COIN.to_string(),
                             owner: bidder_info.sender,
-                            collateral: BidCollateral::Coin {
-                                base,
-                                quote: bidder_info.funds,
-                            },
+                            collateral: BidCollateral::coin(&base, &bidder_info.funds),
                             descriptor: None,
                         }
                     )

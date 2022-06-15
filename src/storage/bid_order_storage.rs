@@ -1,100 +1,12 @@
-use crate::types::constants::{
-    ASK_TYPE_COIN, ASK_TYPE_MARKER, BID_TYPE_COIN, BID_TYPE_MARKER, UNKNOWN_TYPE,
-};
+use crate::types::bid_order::BidOrder;
 use crate::types::error::ContractError;
-use crate::types::request_descriptor::RequestDescriptor;
 use crate::util::extensions::ResultExtensions;
-use crate::validation::bid_order_validation::validate_bid_order;
-use cosmwasm_std::{Addr, Coin, Storage, Timestamp};
+use cosmwasm_std::Storage;
 use cw_storage_plus::{Index, IndexList, IndexedMap, MultiIndex};
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 
 const NAMESPACE_BID_PK: &str = "bid";
 const NAMESPACE_OWNER_IDX: &str = "bid__owner";
 const NAMESPACE_TYPE_IDX: &str = "bid__type";
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct BidOrder {
-    pub id: String,
-    pub bid_type: String,
-    pub owner: Addr,
-    pub collateral: BidCollateral,
-    pub descriptor: Option<RequestDescriptor>,
-}
-impl BidOrder {
-    pub fn new<S: Into<String>>(
-        id: S,
-        owner: Addr,
-        collateral: BidCollateral,
-        descriptor: Option<RequestDescriptor>,
-    ) -> Result<Self, ContractError> {
-        let bid_order = Self::new_unchecked(id, owner, collateral, descriptor);
-        validate_bid_order(&bid_order)?;
-        bid_order.to_ok()
-    }
-
-    pub fn new_unchecked<S: Into<String>>(
-        id: S,
-        owner: Addr,
-        collateral: BidCollateral,
-        descriptor: Option<RequestDescriptor>,
-    ) -> Self {
-        Self {
-            id: id.into(),
-            bid_type: match collateral {
-                BidCollateral::Coin { .. } => BID_TYPE_COIN.to_string(),
-                BidCollateral::Marker { .. } => BID_TYPE_MARKER.to_string(),
-            },
-            owner,
-            collateral,
-            descriptor,
-        }
-    }
-
-    pub fn get_pk(&self) -> &[u8] {
-        self.id.as_bytes()
-    }
-
-    pub fn get_matching_ask_type(&self) -> &str {
-        match self.bid_type.as_str() {
-            BID_TYPE_COIN => ASK_TYPE_COIN,
-            BID_TYPE_MARKER => ASK_TYPE_MARKER,
-            _ => UNKNOWN_TYPE,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum BidCollateral {
-    Coin {
-        base: Vec<Coin>,
-        quote: Vec<Coin>,
-    },
-    Marker {
-        address: Addr,
-        denom: String,
-        quote: Vec<Coin>,
-    },
-}
-impl BidCollateral {
-    pub fn coin(base: &[Coin], quote: &[Coin]) -> Self {
-        Self::Coin {
-            base: base.to_owned(),
-            quote: quote.to_owned(),
-        }
-    }
-
-    pub fn marker<S: Into<String>>(address: Addr, denom: S, quote: &[Coin]) -> Self {
-        Self::Marker {
-            address,
-            denom: denom.into(),
-            quote: quote.to_owned(),
-        }
-    }
-}
 
 pub struct BidOrderIndices<'a> {
     owner_index: MultiIndex<'a, String, BidOrder>,
