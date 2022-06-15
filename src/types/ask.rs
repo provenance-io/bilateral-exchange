@@ -10,14 +10,14 @@ pub enum Ask {
     Marker(MarkerAsk),
 }
 impl Ask {
-    pub fn new_coin<S: Into<String>>(id: S, quote: Vec<Coin>) -> Self {
+    pub fn new_coin<S: Into<String>>(id: S, quote: &[Coin]) -> Self {
         Self::Coin(CoinAsk::new(id, quote))
     }
 
     pub fn new_marker<S1: Into<String>, S2: Into<String>>(
         id: S1,
         denom: S2,
-        quote_per_share: Vec<Coin>,
+        quote_per_share: &[Coin],
     ) -> Self {
         Self::Marker(MarkerAsk::new(id, denom, quote_per_share))
     }
@@ -48,10 +48,10 @@ pub struct CoinAsk {
     pub quote: Vec<Coin>,
 }
 impl CoinAsk {
-    pub fn new<S: Into<String>>(id: S, quote: Vec<Coin>) -> Self {
+    pub fn new<S: Into<String>>(id: S, quote: &[Coin]) -> Self {
         Self {
             id: id.into(),
-            quote,
+            quote: quote.to_owned(),
         }
     }
 }
@@ -67,12 +67,12 @@ impl MarkerAsk {
     pub fn new<S1: Into<String>, S2: Into<String>>(
         id: S1,
         denom: S2,
-        quote_per_share: Vec<Coin>,
+        quote_per_share: &[Coin],
     ) -> Self {
         Self {
             id: id.into(),
             denom: denom.into(),
-            quote_per_share,
+            quote_per_share: quote_per_share.to_owned(),
         }
     }
 }

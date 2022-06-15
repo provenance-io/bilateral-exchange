@@ -10,20 +10,12 @@ pub enum Bid {
     Marker(MarkerBid),
 }
 impl Bid {
-    pub fn new_coin<S: Into<String>>(
-        id: S,
-        base: Vec<Coin>,
-        effective_time: Option<Timestamp>,
-    ) -> Self {
-        Self::Coin(CoinBid::new(id, base, effective_time))
+    pub fn new_coin<S: Into<String>>(id: S, base: &[Coin]) -> Self {
+        Self::Coin(CoinBid::new(id, base))
     }
 
-    pub fn new_marker<S1: Into<String>, S2: Into<String>>(
-        id: S1,
-        denom: S2,
-        effective_time: Option<Timestamp>,
-    ) -> Self {
-        Self::Marker(MarkerBid::new(id, denom, effective_time))
+    pub fn new_marker<S1: Into<String>, S2: Into<String>>(id: S1, denom: S2) -> Self {
+        Self::Marker(MarkerBid::new(id, denom))
     }
 
     pub fn get_id(&self) -> &str {
@@ -50,14 +42,12 @@ impl Bid {
 pub struct CoinBid {
     pub id: String,
     pub base: Vec<Coin>,
-    pub effective_time: Option<Timestamp>,
 }
 impl CoinBid {
-    pub fn new<S: Into<String>>(id: S, base: Vec<Coin>, effective_time: Option<Timestamp>) -> Self {
+    pub fn new<S: Into<String>>(id: S, base: &[Coin]) -> Self {
         Self {
             id: id.into(),
-            base,
-            effective_time,
+            base: base.to_owned(),
         }
     }
 }
@@ -67,18 +57,12 @@ impl CoinBid {
 pub struct MarkerBid {
     pub id: String,
     pub denom: String,
-    pub effective_time: Option<Timestamp>,
 }
 impl MarkerBid {
-    pub fn new<S1: Into<String>, S2: Into<String>>(
-        id: S1,
-        denom: S2,
-        effective_time: Option<Timestamp>,
-    ) -> Self {
+    pub fn new<S1: Into<String>, S2: Into<String>>(id: S1, denom: S2) -> Self {
         Self {
             id: id.into(),
             denom: denom.into(),
-            effective_time,
         }
     }
 }

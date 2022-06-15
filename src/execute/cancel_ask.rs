@@ -97,7 +97,8 @@ mod tests {
         let asker_info = mock_info("asker", &coins(200, "base_1"));
 
         let create_ask_msg = ExecuteMsg::CreateAsk {
-            ask: Ask::new_coin("ask_id", coins(100, "quote_1")),
+            ask: Ask::new_coin("ask_id", &coins(100, "quote_1")),
+            descriptor: None,
         };
 
         // execute create ask
@@ -210,7 +211,8 @@ mod tests {
             &AskOrder::new_unchecked(
                 "ask_id",
                 Addr::unchecked(""),
-                AskCollateral::coin(coins(200, "base_1"), coins(100, "quote_1")),
+                AskCollateral::coin(&coins(200, "base_1"), &coins(100, "quote_1")),
+                None,
             ),
         ) {
             panic!("unexpected error: {:?}", error)

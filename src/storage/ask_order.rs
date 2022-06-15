@@ -2,6 +2,7 @@ use crate::types::constants::{
     ASK_TYPE_COIN, ASK_TYPE_MARKER, BID_TYPE_COIN, BID_TYPE_MARKER, UNKNOWN_TYPE,
 };
 use crate::types::error::ContractError;
+use crate::types::request_descriptor::RequestDescriptor;
 use crate::util::extensions::ResultExtensions;
 use crate::validation::ask_order_validation::validate_ask_order;
 use cosmwasm_std::{Addr, Coin, Storage};
@@ -21,19 +22,26 @@ pub struct AskOrder {
     pub ask_type: String,
     pub owner: Addr,
     pub collateral: AskCollateral,
+    pub descriptor: Option<RequestDescriptor>,
 }
 impl AskOrder {
     pub fn new<S: Into<String>>(
         id: S,
         owner: Addr,
         collateral: AskCollateral,
+        descriptor: Option<RequestDescriptor>,
     ) -> Result<Self, ContractError> {
-        let ask_order = Self::new_unchecked(id, owner, collateral);
+        let ask_order = Self::new_unchecked(id, owner, collateral, descriptor);
         validate_ask_order(&ask_order)?;
         ask_order.to_ok()
     }
 
-    pub fn new_unchecked<S: Into<String>>(id: S, owner: Addr, collateral: AskCollateral) -> Self {
+    pub fn new_unchecked<S: Into<String>>(
+        id: S,
+        owner: Addr,
+        collateral: AskCollateral,
+        descriptor: Option<RequestDescriptor>,
+    ) -> Self {
         Self {
             id: id.into(),
             ask_type: match collateral {
@@ -42,6 +50,7 @@ impl AskOrder {
             },
             owner,
             collateral,
+            descriptor,
         }
     }
 
@@ -73,21 +82,24 @@ pub enum AskCollateral {
     },
 }
 impl AskCollateral {
-    pub fn coin(base: Vec<Coin>, quote: Vec<Coin>) -> Self {
-        Self::Coin { base, quote }
+    pub fn coin(base: &[Coin], quote: &[Coin]) -> Self {
+        Self::Coin {
+            base: base.to_owned(),
+            quote: quote.to_owned(),
+        }
     }
 
     pub fn marker<S: Into<String>>(
         address: Addr,
         denom: S,
-        quote_per_share: Vec<Coin>,
-        removed_permissions: Vec<AccessGrant>,
+        quote_per_share: &[Coin],
+        removed_permissions: &[AccessGrant],
     ) -> Self {
         Self::Marker {
             address,
             denom: denom.into(),
-            quote_per_share,
-            removed_permissions,
+            quote_per_share: quote_per_share.to_owned(),
+            removed_permissions: removed_permissions.to_owned(),
         }
     }
 }

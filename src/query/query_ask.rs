@@ -16,8 +16,9 @@ mod tests {
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
     use crate::types::constants::ASK_TYPE_COIN;
     use crate::types::msg::QueryMsg;
+    use crate::types::request_descriptor::RequestDescriptor;
     use cosmwasm_std::testing::mock_env;
-    use cosmwasm_std::{coins, Addr};
+    use cosmwasm_std::{coins, Addr, Timestamp};
     use provwasm_mocks::mock_dependencies;
 
     #[test]
@@ -44,6 +45,10 @@ mod tests {
                 base: coins(200, "base_1"),
                 quote: coins(100, "quote_1"),
             },
+            descriptor: Some(RequestDescriptor {
+                description: Some("a very nice description".to_string()),
+                effective_time: Some(Timestamp::default()),
+            }),
         };
 
         if let Err(error) = insert_ask_order(deps.as_mut().storage, &ask_order) {

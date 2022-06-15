@@ -76,7 +76,8 @@ mod tests {
         // create bid data
         let bidder_info = mock_info("bidder", &coins(100, "quote_1"));
         let create_bid_msg = ExecuteMsg::CreateBid {
-            bid: Bid::new_coin("bid_id", coins(200, "base_1"), Some(Timestamp::default())),
+            bid: Bid::new_coin("bid_id", &coins(200, "base_1")),
+            descriptor: None,
         };
 
         // execute create bid

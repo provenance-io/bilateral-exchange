@@ -1,9 +1,10 @@
 use crate::storage::ask_order::{get_ask_order_by_id, insert_ask_order, AskCollateral, AskOrder};
 use crate::types::ask::{Ask, CoinAsk, MarkerAsk};
 use crate::types::error::ContractError;
+use crate::types::request_descriptor::RequestDescriptor;
 use crate::util::extensions::ResultExtensions;
 use crate::validation::marker_validation::validate_marker_for_ask;
-use cosmwasm_std::{attr, to_binary, CosmosMsg, DepsMut, Env, MessageInfo, Response};
+use cosmwasm_std::{to_binary, CosmosMsg, DepsMut, Env, MessageInfo, Response};
 use provwasm_std::{revoke_marker_access, ProvenanceMsg, ProvenanceQuerier, ProvenanceQuery};
 
 pub fn create_ask(
@@ -11,6 +12,7 @@ pub fn create_ask(
     info: MessageInfo,
     env: Env,
     ask: Ask,
+    descriptor: Option<RequestDescriptor>,
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     // If loading an ask by the target id returns an Ok response, then the requested id already
     // exists in storage and should not be overwritten
@@ -21,18 +23,23 @@ pub fn create_ask(
         }
         .to_err();
     }
-    match ask {
-        Ask::Coin(coin_ask) => create_coin_ask(deps, info, coin_ask),
-        Ask::Marker(marker_ask) => create_marker_ask(deps, info, env, marker_ask),
-    }
+    let collateral = match &ask {
+        Ask::Coin(coin_ask) => create_coin_ask_collateral(&info, &coin_ask),
+        Ask::Marker(marker_ask) => create_marker_ask_collateral(&deps, &info, &env, &marker_ask),
+    }?;
+    let ask_order = AskOrder::new(ask.get_id(), info.sender, collateral, descriptor)?;
+    insert_ask_order(deps.storage, &ask_order)?;
+    Response::new()
+        .add_attribute("action", "create_ask")
+        .set_data(to_binary(&ask_order)?)
+        .to_ok()
 }
 
 // create ask entrypoint
-pub fn create_coin_ask(
-    deps: DepsMut<ProvenanceQuery>,
-    info: MessageInfo,
-    coin_ask: CoinAsk,
-) -> Result<Response<ProvenanceMsg>, ContractError> {
+fn create_coin_ask_collateral(
+    info: &MessageInfo,
+    coin_ask: &CoinAsk,
+) -> Result<AskCollateral, ContractError> {
     if info.funds.is_empty() {
         return ContractError::InvalidFundsProvided {
             message: "coin ask requests should include funds".to_string(),
@@ -49,29 +56,15 @@ pub fn create_coin_ask(
         .to_err();
     }
 
-    let ask_order = AskOrder::new(
-        coin_ask.id,
-        info.sender,
-        AskCollateral::Coin {
-            base: info.funds,
-            quote: coin_ask.quote,
-        },
-    )?;
-
-    insert_ask_order(deps.storage, &ask_order)?;
-
-    Response::new()
-        .add_attributes(vec![attr("action", "create_ask")])
-        .set_data(to_binary(&ask_order)?)
-        .to_ok()
+    AskCollateral::coin(&info.funds, &coin_ask.quote).to_ok()
 }
 
-pub fn create_marker_ask(
-    deps: DepsMut<ProvenanceQuery>,
-    info: MessageInfo,
-    env: Env,
-    marker_ask: MarkerAsk,
-) -> Result<Response<ProvenanceMsg>, ContractError> {
+fn create_marker_ask_collateral(
+    deps: &DepsMut<ProvenanceQuery>,
+    info: &MessageInfo,
+    env: &Env,
+    marker_ask: &MarkerAsk,
+) -> Result<AskCollateral, ContractError> {
     if !info.funds.is_empty() {
         return ContractError::InvalidFundsProvided {
             message: format!("marker ask requests should not include funds"),
@@ -91,26 +84,17 @@ pub fn create_marker_ask(
             permission.clone().address,
         )?);
     }
-    let ask_order = AskOrder::new(
-        marker_ask.id,
-        info.sender,
-        AskCollateral::Marker {
-            address: marker.address,
-            denom: marker.denom,
-            quote_per_share: marker_ask.quote_per_share,
-            removed_permissions: marker
-                .permissions
-                .into_iter()
-                .filter(|perm| perm.address != env.contract.address)
-                .collect(),
-        },
-    )?;
-    insert_ask_order(deps.storage, &ask_order)?;
-    Response::new()
-        .add_messages(messages)
-        .add_attribute("action", "create_ask")
-        .set_data(to_binary(&ask_order)?)
-        .to_ok()
+    AskCollateral::Marker {
+        address: marker.address,
+        denom: marker.denom,
+        quote_per_share: marker_ask.quote_per_share.to_owned(),
+        removed_permissions: marker
+            .permissions
+            .into_iter()
+            .filter(|perm| perm.address != env.contract.address)
+            .collect(),
+    }
+    .to_ok()
 }
 
 #[cfg(test)]
@@ -122,7 +106,7 @@ mod tests {
     use crate::types::constants::ASK_TYPE_COIN;
     use crate::types::msg::ExecuteMsg;
     use cosmwasm_std::testing::{mock_env, mock_info};
-    use cosmwasm_std::{coins, Addr};
+    use cosmwasm_std::{attr, coins, Addr};
     use provwasm_mocks::mock_dependencies;
 
     #[test]
@@ -141,7 +125,8 @@ mod tests {
 
         // create ask data
         let create_ask_msg = ExecuteMsg::CreateAsk {
-            ask: Ask::new_coin("ask_id", coins(100, "quote_1")),
+            ask: Ask::new_coin("ask_id", &coins(100, "quote_1")),
+            descriptor: None,
         };
 
         let asker_info = mock_info("asker", &coins(2, "base_1"));
@@ -168,6 +153,7 @@ mod tests {
         // verify ask order stored
         if let ExecuteMsg::CreateAsk {
             ask: Ask::Coin(CoinAsk { id, quote }),
+            descriptor: None,
         } = create_ask_msg
         {
             match get_ask_order_by_id(deps.as_ref().storage, "ask_id") {
@@ -182,6 +168,7 @@ mod tests {
                                 base: asker_info.funds,
                                 quote,
                             },
+                            descriptor: None,
                         }
                     )
                 }
@@ -210,7 +197,8 @@ mod tests {
 
         // create ask invalid data
         let create_ask_msg = ExecuteMsg::CreateAsk {
-            ask: Ask::new_coin("", vec![]),
+            ask: Ask::new_coin("", &[]),
+            descriptor: None,
         };
 
         // handle create ask
@@ -235,7 +223,8 @@ mod tests {
 
         // create ask missing id
         let create_ask_msg = ExecuteMsg::CreateAsk {
-            ask: Ask::new_coin("", coins(100, "quote_1")),
+            ask: Ask::new_coin("", &coins(100, "quote_1")),
+            descriptor: None,
         };
 
         // handle create ask
@@ -259,7 +248,8 @@ mod tests {
 
         // create ask missing quote
         let create_ask_msg = ExecuteMsg::CreateAsk {
-            ask: Ask::new_coin("id", vec![]),
+            ask: Ask::new_coin("id", &[]),
+            descriptor: None,
         };
 
         // execute create ask
@@ -283,7 +273,8 @@ mod tests {
 
         // create ask missing base
         let create_ask_msg = ExecuteMsg::CreateAsk {
-            ask: Ask::new_coin("id", coins(100, "quote_1")),
+            ask: Ask::new_coin("id", &coins(100, "quote_1")),
+            descriptor: None,
         };
 
         // execute create ask

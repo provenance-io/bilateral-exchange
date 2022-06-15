@@ -2,6 +2,7 @@ use crate::types::constants::{
     ASK_TYPE_COIN, ASK_TYPE_MARKER, BID_TYPE_COIN, BID_TYPE_MARKER, UNKNOWN_TYPE,
 };
 use crate::types::error::ContractError;
+use crate::types::request_descriptor::RequestDescriptor;
 use crate::util::extensions::ResultExtensions;
 use crate::validation::bid_order_validation::validate_bid_order;
 use cosmwasm_std::{Addr, Coin, Storage, Timestamp};
@@ -20,16 +21,16 @@ pub struct BidOrder {
     pub bid_type: String,
     pub owner: Addr,
     pub collateral: BidCollateral,
-    pub effective_time: Option<Timestamp>,
+    pub descriptor: Option<RequestDescriptor>,
 }
 impl BidOrder {
     pub fn new<S: Into<String>>(
         id: S,
         owner: Addr,
         collateral: BidCollateral,
-        effective_time: Option<Timestamp>,
+        descriptor: Option<RequestDescriptor>,
     ) -> Result<Self, ContractError> {
-        let bid_order = Self::new_unchecked(id, owner, collateral, effective_time);
+        let bid_order = Self::new_unchecked(id, owner, collateral, descriptor);
         validate_bid_order(&bid_order)?;
         bid_order.to_ok()
     }
@@ -38,7 +39,7 @@ impl BidOrder {
         id: S,
         owner: Addr,
         collateral: BidCollateral,
-        effective_time: Option<Timestamp>,
+        descriptor: Option<RequestDescriptor>,
     ) -> Self {
         Self {
             id: id.into(),
@@ -48,7 +49,7 @@ impl BidOrder {
             },
             owner,
             collateral,
-            effective_time,
+            descriptor,
         }
     }
 
@@ -79,15 +80,18 @@ pub enum BidCollateral {
     },
 }
 impl BidCollateral {
-    pub fn coin(base: Vec<Coin>, quote: Vec<Coin>) -> Self {
-        Self::Coin { base, quote }
+    pub fn coin(base: &[Coin], quote: &[Coin]) -> Self {
+        Self::Coin {
+            base: base.to_owned(),
+            quote: quote.to_owned(),
+        }
     }
 
-    pub fn marker<S: Into<String>>(address: Addr, denom: S, quote: Vec<Coin>) -> Self {
+    pub fn marker<S: Into<String>>(address: Addr, denom: S, quote: &[Coin]) -> Self {
         Self::Marker {
             address,
             denom: denom.into(),
-            quote,
+            quote: quote.to_owned(),
         }
     }
 }

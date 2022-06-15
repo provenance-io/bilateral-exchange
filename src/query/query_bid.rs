@@ -15,6 +15,7 @@ mod tests {
     use crate::storage::bid_order::{insert_bid_order, BidCollateral, BidOrder};
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
     use crate::types::msg::QueryMsg;
+    use crate::types::request_descriptor::RequestDescriptor;
     use cosmwasm_std::testing::mock_env;
     use cosmwasm_std::{coins, Addr, Timestamp};
     use provwasm_mocks::mock_dependencies;
@@ -38,8 +39,11 @@ mod tests {
         let bid_order = BidOrder::new_unchecked(
             "bid_id",
             Addr::unchecked("bidder"),
-            BidCollateral::coin(coins(100, "base_1"), coins(100, "quote_1")),
-            Some(Timestamp::default()),
+            BidCollateral::coin(&coins(100, "base_1"), &coins(100, "quote_1")),
+            Some(RequestDescriptor {
+                description: Some("description words".to_string()),
+                effective_time: Some(Timestamp::default()),
+            }),
         );
 
         if let Err(error) = insert_bid_order(deps.as_mut().storage, &bid_order) {

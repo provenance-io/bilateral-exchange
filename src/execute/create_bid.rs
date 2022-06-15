@@ -1,8 +1,9 @@
 use crate::storage::bid_order::{get_bid_order_by_id, insert_bid_order, BidCollateral, BidOrder};
 use crate::types::bid::{Bid, CoinBid, MarkerBid};
 use crate::types::error::ContractError;
+use crate::types::request_descriptor::RequestDescriptor;
 use crate::util::extensions::ResultExtensions;
-use cosmwasm_std::{attr, to_binary, DepsMut, MessageInfo, Response};
+use cosmwasm_std::{to_binary, DepsMut, MessageInfo, Response};
 use provwasm_std::{ProvenanceMsg, ProvenanceQuerier, ProvenanceQuery};
 
 // create bid entrypoint
@@ -10,6 +11,7 @@ pub fn create_bid(
     deps: DepsMut<ProvenanceQuery>,
     info: MessageInfo,
     bid: Bid,
+    descriptor: Option<RequestDescriptor>,
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     if get_bid_order_by_id(deps.storage, bid.get_id()).is_ok() {
         return ContractError::ExistingId {
@@ -18,17 +20,22 @@ pub fn create_bid(
         }
         .to_err();
     }
-    match bid {
-        Bid::Coin(coin_bid) => create_coin_bid(deps, info, coin_bid),
-        Bid::Marker(marker_bid) => create_marker_bid(deps, info, marker_bid),
-    }
+    let collateral = match &bid {
+        Bid::Coin(coin_bid) => create_coin_bid_collateral(&info, &coin_bid),
+        Bid::Marker(marker_bid) => create_marker_bid_collateral(&deps, &info, &marker_bid),
+    }?;
+    let bid_order = BidOrder::new(bid.get_id(), info.sender, collateral, descriptor)?;
+    insert_bid_order(deps.storage, &bid_order)?;
+    Response::new()
+        .add_attribute("action", "create_bid")
+        .set_data(to_binary(&bid_order)?)
+        .to_ok()
 }
 
-pub fn create_coin_bid(
-    deps: DepsMut<ProvenanceQuery>,
-    info: MessageInfo,
-    coin_bid: CoinBid,
-) -> Result<Response<ProvenanceMsg>, ContractError> {
+fn create_coin_bid_collateral(
+    info: &MessageInfo,
+    coin_bid: &CoinBid,
+) -> Result<BidCollateral, ContractError> {
     if coin_bid.id.is_empty() {
         return ContractError::MissingField {
             field: "id".to_string(),
@@ -47,24 +54,14 @@ pub fn create_coin_bid(
         }
         .to_err();
     }
-    let bid_order = BidOrder::new(
-        &coin_bid.id,
-        info.sender,
-        BidCollateral::coin(coin_bid.base, info.funds),
-        coin_bid.effective_time,
-    )?;
-    insert_bid_order(deps.storage, &bid_order)?;
-    Response::new()
-        .add_attributes(vec![attr("action", "create_bid")])
-        .set_data(to_binary(&bid_order)?)
-        .to_ok()
+    BidCollateral::coin(&coin_bid.base, &info.funds).to_ok()
 }
 
-pub fn create_marker_bid(
-    deps: DepsMut<ProvenanceQuery>,
-    info: MessageInfo,
-    marker_bid: MarkerBid,
-) -> Result<Response<ProvenanceMsg>, ContractError> {
+fn create_marker_bid_collateral(
+    deps: &DepsMut<ProvenanceQuery>,
+    info: &MessageInfo,
+    marker_bid: &MarkerBid,
+) -> Result<BidCollateral, ContractError> {
     if marker_bid.id.is_empty() {
         return ContractError::MissingField {
             field: "id".to_string(),
@@ -85,17 +82,7 @@ pub fn create_marker_bid(
     }
     // This grants us access to the marker address, as well as ensuring that the marker is real
     let marker = ProvenanceQuerier::new(&deps.querier).get_marker_by_denom(&marker_bid.denom)?;
-    let bid_order = BidOrder::new(
-        &marker_bid.id,
-        info.sender,
-        BidCollateral::marker(marker.address, &marker_bid.denom, info.funds),
-        marker_bid.effective_time,
-    )?;
-    insert_bid_order(deps.storage, &bid_order)?;
-    Response::new()
-        .add_attribute("action", "create_bid")
-        .set_data(to_binary(&bid_order)?)
-        .to_ok()
+    BidCollateral::marker(marker.address, &marker_bid.denom, &info.funds).to_ok()
 }
 
 #[cfg(test)]
@@ -106,7 +93,7 @@ mod tests {
     use crate::types::constants::BID_TYPE_COIN;
     use crate::types::msg::ExecuteMsg;
     use cosmwasm_std::testing::{mock_env, mock_info};
-    use cosmwasm_std::{coins, Addr, Timestamp};
+    use cosmwasm_std::{attr, coins, Addr, Timestamp};
     use provwasm_mocks::mock_dependencies;
 
     #[test]
@@ -125,7 +112,8 @@ mod tests {
 
         // create bid data
         let create_bid_msg = ExecuteMsg::CreateBid {
-            bid: Bid::new_coin("bid_id", coins(100, "base_1"), Some(Timestamp::default())),
+            bid: Bid::new_coin("bid_id", &coins(100, "base_1")),
+            descriptor: None,
         };
 
         let bidder_info = mock_info("bidder", &coins(2, "mark_2"));
@@ -151,12 +139,8 @@ mod tests {
 
         // verify bid order stored
         if let ExecuteMsg::CreateBid {
-            bid:
-                Bid::Coin(CoinBid {
-                    id,
-                    base,
-                    effective_time,
-                }),
+            bid: Bid::Coin(CoinBid { id, base }),
+            descriptor: None,
         } = create_bid_msg
         {
             match get_bid_order_by_id(deps.as_ref().storage, "bid_id") {
@@ -171,7 +155,7 @@ mod tests {
                                 base,
                                 quote: bidder_info.funds,
                             },
-                            effective_time,
+                            descriptor: None,
                         }
                     )
                 }
@@ -200,7 +184,8 @@ mod tests {
 
         // create bid missing id
         let create_bid_msg = ExecuteMsg::CreateBid {
-            bid: Bid::new_coin("", coins(100, "base_1"), Some(Timestamp::default())),
+            bid: Bid::new_coin("", &coins(100, "base_1")),
+            descriptor: None,
         };
 
         // execute create bid
@@ -224,7 +209,8 @@ mod tests {
 
         // create bid missing base
         let create_bid_msg = ExecuteMsg::CreateBid {
-            bid: Bid::new_coin("id", vec![], Some(Timestamp::default())),
+            bid: Bid::new_coin("id", &[]),
+            descriptor: None,
         };
 
         // execute create bid
@@ -248,7 +234,8 @@ mod tests {
 
         // create bid missing quote
         let create_bid_msg = ExecuteMsg::CreateBid {
-            bid: Bid::new_coin("id", coins(100, "base_1"), Some(Timestamp::default())),
+            bid: Bid::new_coin("id", &coins(100, "base_1")),
+            descriptor: None,
         };
 
         // execute create bid
