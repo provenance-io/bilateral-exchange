@@ -1,5 +1,5 @@
 use crate::types::ask_base::AskBase;
-use cosmwasm_std::{Coin, Timestamp};
+use crate::types::bid_base::BidBase;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -12,25 +12,11 @@ pub struct InstantiateMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
-    CancelAsk {
-        id: String,
-    },
-    CancelBid {
-        id: String,
-    },
-    CreateAsk {
-        base: AskBase,
-        // effective_time: Option<Timestamp>,
-    },
-    CreateBid {
-        id: String,
-        base: Vec<Coin>,
-        effective_time: Option<Timestamp>,
-    },
-    ExecuteMatch {
-        ask_id: String,
-        bid_id: String,
-    },
+    CancelAsk { id: String },
+    CancelBid { id: String },
+    CreateAsk { ask: AskBase },
+    CreateBid { base: BidBase },
+    ExecuteMatch { ask_id: String, bid_id: String },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

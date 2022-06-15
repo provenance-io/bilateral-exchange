@@ -1,6 +1,8 @@
-use crate::storage::state::{get_bid_storage, get_bid_storage_read};
+use crate::storage::bid_order::{get_bid_order_by_id, BidCollateral};
+use crate::storage::contract_info::get_contract_info;
 use crate::types::error::ContractError;
-use cosmwasm_std::{attr, BankMsg, DepsMut, Env, MessageInfo, Response};
+use crate::util::extensions::ResultExtensions;
+use cosmwasm_std::{to_binary, BankMsg, CosmosMsg, DepsMut, Env, MessageInfo, Response};
 use provwasm_std::{ProvenanceMsg, ProvenanceQuery};
 
 // cancel bid entrypoint
@@ -12,43 +14,44 @@ pub fn cancel_bid(
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     // return error if id is empty
     if id.is_empty() {
-        return Err(ContractError::Unauthorized);
+        return ContractError::InvalidFields {
+            messages: vec!["an id must be provided when cancelling a bid".to_string()],
+        }
+        .to_err();
     }
 
     // return error if funds sent
     if !info.funds.is_empty() {
-        return Err(ContractError::CancelWithFunds);
-    }
-
-    let bid_storage = get_bid_storage_read(deps.storage);
-    let stored_bid_order = bid_storage.load(id.as_bytes());
-    match stored_bid_order {
-        Ok(stored_bid_order) => {
-            if !info.sender.eq(&stored_bid_order.owner) {
-                return Err(ContractError::Unauthorized);
-            }
-
-            // remove the ask order from storage
-            let mut bid_storage = get_bid_storage(deps.storage);
-            bid_storage.remove(id.as_bytes());
-
-            // 'send quote back to owner' message
-            Ok(Response::new()
-                .add_message(BankMsg::Send {
-                    to_address: stored_bid_order.owner.to_string(),
-                    amount: stored_bid_order.quote,
-                })
-                .add_attributes(vec![attr("action", "cancel_bid")]))
+        return ContractError::InvalidFundsProvided {
+            message: "funds should not be provided when cancelling a bid".to_string(),
         }
-        Err(_) => Err(ContractError::Unauthorized),
+        .to_err();
     }
+    let bid_order = get_bid_order_by_id(deps.storage, &id)?;
+    // Only the owner of the bid and the admin can cancel a bid
+    if info.sender != bid_order.owner && get_contract_info(deps.storage)?.admin != bid_order.owner {
+        return ContractError::Unauthorized.to_err();
+    }
+    let coin_to_send = match &bid_order.collateral {
+        BidCollateral::Coin { quote, .. } => quote.to_owned(),
+        BidCollateral::Marker { base, .. } => vec![base.to_owned()],
+    };
+    Response::new()
+        .add_message(BankMsg::Send {
+            to_address: bid_order.owner.to_string(),
+            amount: coin_to_send,
+        })
+        .add_attribute("action", "cancel_bid")
+        .set_data(to_binary(&bid_order)?)
+        .to_ok()
 }
 
 #[cfg(test)]
 mod tests {
     use crate::contract::execute;
+    use crate::storage::bid_order::get_bid_order_by_id;
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
-    use crate::storage::state::get_bid_storage_read;
+    use crate::types::bid_base::BidBase;
     use crate::types::msg::ExecuteMsg;
     use cosmwasm_std::testing::{mock_env, mock_info};
     use cosmwasm_std::{attr, coins, Addr, BankMsg, Coin, CosmosMsg, Timestamp, Uint128};
@@ -71,12 +74,7 @@ mod tests {
         // create bid data
         let bidder_info = mock_info("bidder", &coins(100, "quote_1"));
         let create_bid_msg = ExecuteMsg::CreateBid {
-            id: "bid_id".into(),
-            base: vec![Coin {
-                denom: "base_1".into(),
-                amount: Uint128::new(200),
-            }],
-            effective_time: Some(Timestamp::default()),
+            base: BidBase::new_coin("bid_id", coins(200, "base_1"), Some(Timestamp::default())),
         };
 
         // execute create bid
@@ -85,8 +83,7 @@ mod tests {
         }
 
         // verify bid order stored
-        let bid_storage = get_bid_storage_read(&deps.storage);
-        assert!(bid_storage.load("bid_id".to_string().as_bytes()).is_ok(),);
+        assert!(get_bid_order_by_id(deps.as_ref().storage, "bid_id").is_ok());
 
         // cancel bid order
         let bidder_info = mock_info("bidder", &[]);
@@ -122,7 +119,6 @@ mod tests {
         }
 
         // verify bid order removed from storage
-        let bid_storage = get_bid_storage_read(&deps.storage);
-        assert!(bid_storage.load("bid_id".to_string().as_bytes()).is_err());
+        assert!(get_bid_order_by_id(deps.as_ref().storage, "bid_id").is_err());
     }
 }

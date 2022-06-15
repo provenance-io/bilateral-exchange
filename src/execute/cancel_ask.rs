@@ -80,7 +80,7 @@ mod tests {
     use provwasm_mocks::mock_dependencies;
 
     #[test]
-    fn cancel_with_valid_data() {
+    fn cancel_coin_ask_with_valid_data() {
         let mut deps = mock_dependencies(&[]);
         if let Err(error) = set_contract_info(
             &mut deps.storage,
@@ -97,7 +97,7 @@ mod tests {
         let asker_info = mock_info("asker", &coins(200, "base_1"));
 
         let create_ask_msg = ExecuteMsg::CreateAsk {
-            base: AskBase::new_coin("ask_id", coins(100, "quote_1")),
+            ask: AskBase::new_coin("ask_id", coins(100, "quote_1")),
         };
 
         // execute create ask
@@ -145,7 +145,7 @@ mod tests {
     }
 
     #[test]
-    fn cancel_with_invalid_data() {
+    fn cancel_coin_ask_with_invalid_data() {
         let mut deps = mock_dependencies(&[]);
         if let Err(error) = set_contract_info(
             &mut deps.storage,

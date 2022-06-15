@@ -12,8 +12,8 @@ pub enum ContractError {
     #[error("Cannot send funds when executing match")]
     ExecuteWithFunds,
 
-    #[error("Cannot create ask with id: {id}. An ask with that id already exists")]
-    ExistingAskId { id: String },
+    #[error("Cannot create [{id_type}] with id [{id}]. One with that id already exists")]
+    ExistingId { id_type: String, id: String },
 
     #[error("Field issues encountered: {messages:?}")]
     InvalidFields { messages: Vec<String> },

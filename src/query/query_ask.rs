@@ -12,7 +12,7 @@ mod tests {
     use crate::contract::query;
     use crate::storage::ask_order::{insert_ask_order, AskCollateral, AskOrder};
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
-    use crate::types::ask_base::COIN_ASK_TYPE;
+    use crate::types::constants::ASK_TYPE_COIN;
     use crate::types::msg::QueryMsg;
     use cosmwasm_std::testing::mock_env;
     use cosmwasm_std::{coins, Addr};
@@ -36,7 +36,7 @@ mod tests {
         // store valid ask order
         let ask_order = AskOrder {
             id: "ask_id".into(),
-            ask_type: COIN_ASK_TYPE.to_string(),
+            ask_type: ASK_TYPE_COIN.to_string(),
             owner: Addr::unchecked("asker"),
             collateral: AskCollateral::Coin {
                 base: coins(200, "base_1"),

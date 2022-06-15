@@ -1,4 +1,4 @@
-use crate::types::ask_base::{COIN_ASK_TYPE, MARKER_ASK_TYPE};
+use crate::types::constants::{ASK_TYPE_COIN, ASK_TYPE_MARKER};
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
 use crate::validation::ask_order_validation::validate_ask_order;
@@ -35,8 +35,8 @@ impl AskOrder {
         Self {
             id: id.into(),
             ask_type: match collateral {
-                AskCollateral::Coin { .. } => COIN_ASK_TYPE.to_string(),
-                AskCollateral::Marker { .. } => MARKER_ASK_TYPE.to_string(),
+                AskCollateral::Coin { .. } => ASK_TYPE_COIN.to_string(),
+                AskCollateral::Marker { .. } => ASK_TYPE_MARKER.to_string(),
             },
             owner,
             collateral,
@@ -116,7 +116,7 @@ pub fn insert_ask_order(
             message: format!(
                 "an ask with id [{}] for owner [{}] already exists",
                 existing_ask.id,
-                existing_ask.owner.to_string(),
+                existing_ask.owner.as_str(),
             ),
         }
         .to_err();

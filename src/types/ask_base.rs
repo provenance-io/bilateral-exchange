@@ -1,9 +1,7 @@
+use crate::types::constants::{ASK_TYPE_COIN, ASK_TYPE_MARKER};
 use cosmwasm_std::Coin;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-
-pub const COIN_ASK_TYPE: &str = "coin";
-pub const MARKER_ASK_TYPE: &str = "marker";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -37,8 +35,8 @@ impl AskBase {
 
     pub fn get_ask_type(&self) -> &str {
         match self {
-            Self::Coin(_) => COIN_ASK_TYPE,
-            Self::Marker(_) => MARKER_ASK_TYPE,
+            Self::Coin(_) => ASK_TYPE_COIN,
+            Self::Marker(_) => ASK_TYPE_MARKER,
         }
     }
 }

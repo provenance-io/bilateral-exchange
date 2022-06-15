@@ -15,12 +15,12 @@ pub fn create_ask(
     // If loading an ask by the target id returns an Ok response, then the requested id already
     // exists in storage and should not be overwritten
     if get_ask_order_by_id(deps.storage, ask_base.get_id()).is_ok() {
-        return ContractError::ExistingAskId {
+        return ContractError::ExistingId {
+            id_type: "ask".to_string(),
             id: ask_base.get_id().to_string(),
         }
         .to_err();
     }
-
     match ask_base {
         AskBase::Coin(coin_ask) => create_coin_ask(deps, info, coin_ask),
         AskBase::Marker(marker_ask) => create_marker_ask(deps, info, env, marker_ask),
@@ -35,7 +35,7 @@ pub fn create_coin_ask(
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     if info.funds.is_empty() {
         return ContractError::InvalidFundsProvided {
-            message: format!("coin ask requests should include funds"),
+            message: "coin ask requests should include funds".to_string(),
         }
         .to_err();
     }
@@ -118,7 +118,7 @@ mod tests {
     use crate::contract::execute;
     use crate::storage::ask_order::get_ask_order_by_id;
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
-    use crate::types::ask_base::COIN_ASK_TYPE;
+    use crate::types::constants::ASK_TYPE_COIN;
     use crate::types::msg::ExecuteMsg;
     use cosmwasm_std::testing::{mock_env, mock_info};
     use cosmwasm_std::{coin, coins, Addr};
@@ -141,7 +141,7 @@ mod tests {
 
         // create ask data
         let create_ask_msg = ExecuteMsg::CreateAsk {
-            base: AskBase::new_coin("ask_id", coins(100, "quote_1")),
+            ask: AskBase::new_coin("ask_id", coins(100, "quote_1")),
         };
 
         let asker_info = mock_info("asker", &coins(2, "base_1"));
@@ -167,7 +167,7 @@ mod tests {
 
         // verify ask order stored
         if let ExecuteMsg::CreateAsk {
-            base: AskBase::Coin(CoinAskBase { id, quote }),
+            ask: AskBase::Coin(CoinAskBase { id, quote }),
         } = create_ask_msg
         {
             match get_ask_order_by_id(deps.as_ref().storage, "ask_id") {
@@ -176,7 +176,7 @@ mod tests {
                         stored_order,
                         AskOrder {
                             id,
-                            ask_type: COIN_ASK_TYPE.to_string(),
+                            ask_type: ASK_TYPE_COIN.to_string(),
                             owner: asker_info.sender,
                             collateral: AskCollateral::Coin {
                                 base: asker_info.funds,
@@ -210,7 +210,7 @@ mod tests {
 
         // create ask invalid data
         let create_ask_msg = ExecuteMsg::CreateAsk {
-            base: AskBase::new_coin("", vec![]),
+            ask: AskBase::new_coin("", vec![]),
         };
 
         // handle create ask
@@ -234,7 +234,7 @@ mod tests {
 
         // create ask missing id
         let create_ask_msg = ExecuteMsg::CreateAsk {
-            base: AskBase::new_coin("", coins(100, "quote_1")),
+            ask: AskBase::new_coin("", coins(100, "quote_1")),
         };
 
         // handle create ask
@@ -258,7 +258,7 @@ mod tests {
 
         // create ask missing quote
         let create_ask_msg = ExecuteMsg::CreateAsk {
-            base: AskBase::new_coin("id", vec![]),
+            ask: AskBase::new_coin("id", vec![]),
         };
 
         // execute create ask
@@ -282,7 +282,7 @@ mod tests {
 
         // create ask missing base
         let create_ask_msg = ExecuteMsg::CreateAsk {
-            base: AskBase::new_coin("id", coins(100, "quote_1")),
+            ask: AskBase::new_coin("id", coins(100, "quote_1")),
         };
 
         // execute create ask
