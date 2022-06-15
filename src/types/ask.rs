@@ -1,29 +1,25 @@
-use crate::types::constants::{BID_TYPE_COIN, BID_TYPE_MARKER};
-use cosmwasm_std::{Coin, Timestamp};
+use crate::types::constants::{ASK_TYPE_COIN, ASK_TYPE_MARKER};
+use cosmwasm_std::Coin;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum BidBase {
-    Coin(CoinBidBase),
-    Marker(MarkerBidBase),
+pub enum Ask {
+    Coin(CoinAsk),
+    Marker(MarkerAsk),
 }
-impl BidBase {
-    pub fn new_coin<S: Into<String>>(
-        id: S,
-        base: Vec<Coin>,
-        effective_time: Option<Timestamp>,
-    ) -> Self {
-        Self::Coin(CoinBidBase::new(id, base, effective_time))
+impl Ask {
+    pub fn new_coin<S: Into<String>>(id: S, quote: Vec<Coin>) -> Self {
+        Self::Coin(CoinAsk::new(id, quote))
     }
 
     pub fn new_marker<S1: Into<String>, S2: Into<String>>(
         id: S1,
         denom: S2,
-        effective_time: Option<Timestamp>,
+        quote_per_share: Vec<Coin>,
     ) -> Self {
-        Self::Marker(MarkerBidBase::new(id, denom, effective_time))
+        Self::Marker(MarkerAsk::new(id, denom, quote_per_share))
     }
 
     pub fn get_id(&self) -> &str {
@@ -37,48 +33,46 @@ impl BidBase {
         self.get_id().as_bytes()
     }
 
-    pub fn get_bid_type(&self) -> &str {
+    pub fn get_ask_type(&self) -> &str {
         match self {
-            Self::Coin(_) => BID_TYPE_COIN,
-            Self::Marker(_) => BID_TYPE_MARKER,
+            Self::Coin(_) => ASK_TYPE_COIN,
+            Self::Marker(_) => ASK_TYPE_MARKER,
         }
     }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub struct CoinBidBase {
+pub struct CoinAsk {
     pub id: String,
-    pub base: Vec<Coin>,
-    pub effective_time: Option<Timestamp>,
+    pub quote: Vec<Coin>,
 }
-impl CoinBidBase {
-    pub fn new<S: Into<String>>(id: S, base: Vec<Coin>, effective_time: Option<Timestamp>) -> Self {
+impl CoinAsk {
+    pub fn new<S: Into<String>>(id: S, quote: Vec<Coin>) -> Self {
         Self {
             id: id.into(),
-            base,
-            effective_time,
+            quote,
         }
     }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub struct MarkerBidBase {
+pub struct MarkerAsk {
     pub id: String,
     pub denom: String,
-    pub effective_time: Option<Timestamp>,
+    pub quote_per_share: Vec<Coin>,
 }
-impl MarkerBidBase {
+impl MarkerAsk {
     pub fn new<S1: Into<String>, S2: Into<String>>(
         id: S1,
         denom: S2,
-        effective_time: Option<Timestamp>,
+        quote_per_share: Vec<Coin>,
     ) -> Self {
         Self {
             id: id.into(),
             denom: denom.into(),
-            effective_time,
+            quote_per_share,
         }
     }
 }

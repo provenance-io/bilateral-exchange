@@ -1,7 +1,7 @@
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
 use crate::util::provenance_utilities::{get_single_marker_coin_holding, marker_has_admin};
-use cosmwasm_std::{Addr, MessageInfo};
+use cosmwasm_std::Addr;
 use provwasm_std::{Marker, MarkerStatus};
 
 pub fn validate_marker_for_ask(

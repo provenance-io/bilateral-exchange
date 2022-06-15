@@ -39,26 +39,28 @@ pub fn validate_ask_order(ask_order: &AskOrder) -> Result<(), ContractError> {
         }
     };
     let validate_coin = |coin: &Coin, coin_type: &str| {
+        let mut messages: Vec<String> = vec![];
         if coin.amount.u128() == 0 {
-            invalid_field_messages.push(
+            messages.push(
                 format!(
-                    "Zero amounts not allowed on coins. Coin denom [{}] and type [{}] for AsKOrder [{}]",
-                    coin.denom,
+                    "Zero amounts not allowed on coins. Coin denom [{}] and type [{}] for AskOrder [{}]",
+                    &coin.denom,
                     coin_type,
-                    ask_order.id,
+                    &ask_order.id,
                 )
             );
         }
         if coin.denom.is_empty() {
-            invalid_field_messages.push(
+            messages.push(
                 format!(
                     "Blank denoms not allowed on coins. Coin amount [{}] and type [{}] for AskOrder [{}]",
                     coin.amount.u128(),
                     coin_type,
-                    ask_order.id,
+                    &ask_order.id,
                 )
             );
         }
+        messages
     };
     match &ask_order.collateral {
         AskCollateral::Coin { base, quote } => {
@@ -67,22 +69,30 @@ pub fn validate_ask_order(ask_order: &AskOrder) -> Result<(), ContractError> {
                     "AskCollateral for AskOrder [{}] of type coin must include base funds",
                     ask_order.id
                 ));
-                base.iter()
-                    .for_each(|coin| validate_coin(coin, "AskCollateral Base Coin"));
+                invalid_field_messages.append(
+                    &mut base
+                        .iter()
+                        .flat_map(|coin| validate_coin(coin, "AskCollateral Base Coin"))
+                        .collect(),
+                );
             }
             if quote.is_empty() {
                 invalid_field_messages.push(format!(
                     "AskCollateral for AskOrder [{}] of type coin must include quote funds",
                     ask_order.id,
                 ));
-                quote
-                    .iter()
-                    .for_each(|coin| validate_coin(coin, "AskCollateral Quote Coin"));
+                invalid_field_messages.append(
+                    &mut quote
+                        .iter()
+                        .flat_map(|coin| validate_coin(coin, "AskCollateral Quote Coin"))
+                        .collect(),
+                );
             }
         }
         AskCollateral::Marker {
             address,
             denom,
+            quote_per_share,
             removed_permissions,
         } => {
             if address.as_str().is_empty() {
@@ -94,9 +104,21 @@ pub fn validate_ask_order(ask_order: &AskOrder) -> Result<(), ContractError> {
             if denom.is_empty() {
                 invalid_field_messages.push(format!(
                     "AskOrder [{}] of type marker must have a specified denom",
-                    ask_order.id
+                    ask_order.id,
                 ));
             }
+            if quote_per_share.is_empty() {
+                invalid_field_messages.push(format!(
+                    "AskOrder [{}] of type marker must have a quote per share",
+                    ask_order.id,
+                ))
+            }
+            invalid_field_messages.append(
+                &mut quote_per_share
+                    .iter()
+                    .flat_map(|coin| validate_coin(coin, "AskCollateral Quote per Share Coin"))
+                    .collect(),
+            );
             if !removed_permissions
                 .iter()
                 .any(|perm| perm.address == ask_order.owner)

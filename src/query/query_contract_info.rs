@@ -1,9 +1,11 @@
 use crate::storage::contract_info::get_contract_info;
-use cosmwasm_std::{to_binary, Binary, Deps, StdResult};
+use crate::types::error::ContractError;
+use crate::util::extensions::ResultExtensions;
+use cosmwasm_std::{to_binary, Binary, Deps};
 use provwasm_std::ProvenanceQuery;
 
-pub fn query_contract_info(deps: Deps<ProvenanceQuery>) -> StdResult<Binary> {
-    to_binary(&get_contract_info(deps.storage)?)
+pub fn query_contract_info(deps: Deps<ProvenanceQuery>) -> Result<Binary, ContractError> {
+    to_binary(&get_contract_info(deps.storage)?)?.to_ok()
 }
 
 #[cfg(test)]

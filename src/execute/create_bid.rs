@@ -1,33 +1,33 @@
 use crate::storage::bid_order::{get_bid_order_by_id, insert_bid_order, BidCollateral, BidOrder};
-use crate::types::bid_base::{BidBase, CoinBidBase, MarkerBidBase};
+use crate::types::bid::{Bid, CoinBid, MarkerBid};
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
-use cosmwasm_std::{attr, to_binary, DepsMut, MessageInfo, Response, Timestamp};
+use cosmwasm_std::{attr, to_binary, DepsMut, MessageInfo, Response};
 use provwasm_std::{ProvenanceMsg, ProvenanceQuerier, ProvenanceQuery};
 
 // create bid entrypoint
 pub fn create_bid(
     deps: DepsMut<ProvenanceQuery>,
     info: MessageInfo,
-    bid_base: BidBase,
+    bid: Bid,
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
-    if get_bid_order_by_id(deps.storage, bid_base.get_id()).is_ok() {
+    if get_bid_order_by_id(deps.storage, bid.get_id()).is_ok() {
         return ContractError::ExistingId {
             id_type: "bid".to_string(),
-            id: bid_base.get_id().to_string(),
+            id: bid.get_id().to_string(),
         }
         .to_err();
     }
-    match bid_base {
-        BidBase::Coin(coin_bid) => create_coin_bid(deps, info, coin_bid),
-        BidBase::Marker(marker_bid) => create_marker_bid(deps, info, marker_bid),
+    match bid {
+        Bid::Coin(coin_bid) => create_coin_bid(deps, info, coin_bid),
+        Bid::Marker(marker_bid) => create_marker_bid(deps, info, marker_bid),
     }
 }
 
 pub fn create_coin_bid(
     deps: DepsMut<ProvenanceQuery>,
     info: MessageInfo,
-    coin_bid: CoinBidBase,
+    coin_bid: CoinBid,
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     if coin_bid.id.is_empty() {
         return ContractError::MissingField {
@@ -63,7 +63,7 @@ pub fn create_coin_bid(
 pub fn create_marker_bid(
     deps: DepsMut<ProvenanceQuery>,
     info: MessageInfo,
-    marker_bid: MarkerBidBase,
+    marker_bid: MarkerBid,
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     if marker_bid.id.is_empty() {
         return ContractError::MissingField {
@@ -106,7 +106,7 @@ mod tests {
     use crate::types::constants::BID_TYPE_COIN;
     use crate::types::msg::ExecuteMsg;
     use cosmwasm_std::testing::{mock_env, mock_info};
-    use cosmwasm_std::{coins, Addr};
+    use cosmwasm_std::{coins, Addr, Timestamp};
     use provwasm_mocks::mock_dependencies;
 
     #[test]
@@ -125,7 +125,7 @@ mod tests {
 
         // create bid data
         let create_bid_msg = ExecuteMsg::CreateBid {
-            base: BidBase::new_coin("bid_id", coins(100, "base_1"), Some(Timestamp::default())),
+            bid: Bid::new_coin("bid_id", coins(100, "base_1"), Some(Timestamp::default())),
         };
 
         let bidder_info = mock_info("bidder", &coins(2, "mark_2"));
@@ -151,8 +151,8 @@ mod tests {
 
         // verify bid order stored
         if let ExecuteMsg::CreateBid {
-            base:
-                BidBase::Coin(CoinBidBase {
+            bid:
+                Bid::Coin(CoinBid {
                     id,
                     base,
                     effective_time,
@@ -200,7 +200,7 @@ mod tests {
 
         // create bid missing id
         let create_bid_msg = ExecuteMsg::CreateBid {
-            base: BidBase::new_coin("", coins(100, "base_1"), Some(Timestamp::default())),
+            bid: Bid::new_coin("", coins(100, "base_1"), Some(Timestamp::default())),
         };
 
         // execute create bid
@@ -224,7 +224,7 @@ mod tests {
 
         // create bid missing base
         let create_bid_msg = ExecuteMsg::CreateBid {
-            base: BidBase::new_coin("id", vec![], Some(Timestamp::default())),
+            bid: Bid::new_coin("id", vec![], Some(Timestamp::default())),
         };
 
         // execute create bid
@@ -248,7 +248,7 @@ mod tests {
 
         // create bid missing quote
         let create_bid_msg = ExecuteMsg::CreateBid {
-            base: BidBase::new_coin("id", coins(100, "base_1"), Some(Timestamp::default())),
+            bid: Bid::new_coin("id", coins(100, "base_1"), Some(Timestamp::default())),
         };
 
         // execute create bid
@@ -257,15 +257,18 @@ mod tests {
             mock_env(),
             mock_info("bidder", &[]),
             create_bid_msg,
-        );
+        )
+        .expect_err("expected an error for a missing quote on a bid");
 
         // verify execute create bid response returns ContractError::BidMissingQuote
         match create_bid_response {
-            Ok(_) => panic!("expected error, but create_bid_response ok"),
-            Err(error) => match error {
-                ContractError::MissingBidQuote => {}
-                error => panic!("unexpected error: {:?}", error),
-            },
+            ContractError::InvalidFundsProvided { message } => {
+                assert_eq!("coin bid requests should include funds", message,);
+            }
+            e => panic!(
+                "unexpected error when no funds provided to create bid: {:?}",
+                e
+            ),
         }
     }
 }

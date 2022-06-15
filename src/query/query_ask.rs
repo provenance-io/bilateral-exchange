@@ -1,9 +1,11 @@
 use crate::storage::ask_order::get_ask_order_by_id;
-use cosmwasm_std::{to_binary, Binary, Deps, StdResult};
+use crate::types::error::ContractError;
+use crate::util::extensions::ResultExtensions;
+use cosmwasm_std::{to_binary, Binary, Deps};
 use provwasm_std::ProvenanceQuery;
 
-pub fn query_ask(deps: Deps<ProvenanceQuery>, id: String) -> StdResult<Binary> {
-    to_binary(&get_ask_order_by_id(deps.storage, id)?)
+pub fn query_ask(deps: Deps<ProvenanceQuery>, id: String) -> Result<Binary, ContractError> {
+    to_binary(&get_ask_order_by_id(deps.storage, id)?)?.to_ok()
 }
 
 #[cfg(test)]
@@ -55,8 +57,12 @@ mod tests {
             QueryMsg::GetAsk {
                 id: ask_order.id.clone(),
             },
-        );
+        )
+        .expect("expected the query to execute successfully");
 
-        assert_eq!(query_ask_response, to_binary(&ask_order));
+        assert_eq!(
+            query_ask_response,
+            to_binary(&ask_order).expect("expected binary serialization to succeed for ask order"),
+        );
     }
 }

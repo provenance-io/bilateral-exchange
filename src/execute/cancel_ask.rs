@@ -2,7 +2,7 @@ use crate::storage::ask_order::{delete_ask_order_by_id, get_ask_order_by_id, Ask
 use crate::storage::contract_info::get_contract_info;
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
-use cosmwasm_std::{attr, to_binary, BankMsg, CosmosMsg, DepsMut, Env, MessageInfo, Response};
+use cosmwasm_std::{to_binary, BankMsg, CosmosMsg, DepsMut, Env, MessageInfo, Response};
 use provwasm_std::{grant_marker_access, revoke_marker_access, ProvenanceMsg, ProvenanceQuery};
 
 // cancel ask entrypoint
@@ -73,10 +73,10 @@ mod tests {
     use crate::contract::execute;
     use crate::storage::ask_order::{insert_ask_order, AskOrder};
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
-    use crate::types::ask_base::AskBase;
+    use crate::types::ask::Ask;
     use crate::types::msg::ExecuteMsg;
     use cosmwasm_std::testing::{mock_env, mock_info};
-    use cosmwasm_std::{coins, Addr, CosmosMsg};
+    use cosmwasm_std::{attr, coins, Addr, CosmosMsg};
     use provwasm_mocks::mock_dependencies;
 
     #[test]
@@ -97,7 +97,7 @@ mod tests {
         let asker_info = mock_info("asker", &coins(200, "base_1"));
 
         let create_ask_msg = ExecuteMsg::CreateAsk {
-            ask: AskBase::new_coin("ask_id", coins(100, "quote_1")),
+            ask: Ask::new_coin("ask_id", coins(100, "quote_1")),
         };
 
         // execute create ask
@@ -167,16 +167,18 @@ mod tests {
             mock_env(),
             asker_info.clone(),
             cancel_ask_msg,
-        );
+        )
+        .expect_err("expected an error to occur when a blank id is provided");
 
         match cancel_response {
-            Err(error) => match error {
-                ContractError::Unauthorized => {}
-                _ => {
-                    panic!("unexpected error: {:?}", error)
-                }
-            },
-            Ok(_) => panic!("expected error, but cancel_response ok"),
+            ContractError::InvalidFields { messages } => {
+                assert_eq!(1, messages.len());
+                assert_eq!(
+                    "an id must be provided when cancelling an ask",
+                    messages.first().unwrap(),
+                );
+            }
+            e => panic!("unexpected error with invalid id provided: {:?}", e),
         }
 
         // cancel non-existent ask order returns ContractError::Unauthorized
@@ -189,16 +191,17 @@ mod tests {
             mock_env(),
             asker_info.clone(),
             cancel_ask_msg,
-        );
+        )
+        .expect_err("expected an error to occur for a missing ask");
 
         match cancel_response {
-            Err(error) => match error {
-                ContractError::Unauthorized => {}
-                _ => {
-                    panic!("unexpected error: {:?}", error)
-                }
-            },
-            Ok(_) => panic!("expected error, but cancel_response ok"),
+            ContractError::StorageError { message } => {
+                assert_eq!(
+                    "failed to find AskOrder by id [unknown_id]: NotFound { kind: \"bilateral_exchange::storage::ask_order::AskOrder\" }",
+                    message,
+                );
+            }
+            e => panic!("unexpected error when cancelling missing ask: {:?}", e),
         }
 
         // cancel ask order with sender not equal to owner returns ContractError::Unauthorized
@@ -234,16 +237,20 @@ mod tests {
             id: "ask_id".to_string(),
         };
 
-        let cancel_response = execute(deps.as_mut(), mock_env(), asker_info, cancel_ask_msg);
+        let cancel_response = execute(deps.as_mut(), mock_env(), asker_info, cancel_ask_msg)
+            .expect_err("expected an error to occur when sending funds");
 
         match cancel_response {
-            Err(error) => match error {
-                ContractError::CancelWithFunds => {}
-                _ => {
-                    panic!("unexpected error: {:?}", error)
-                }
-            },
-            Ok(_) => panic!("expected error, but cancel_response ok"),
+            ContractError::InvalidFundsProvided { message } => {
+                assert_eq!(
+                    "funds should not be provided when cancelling an ask",
+                    message,
+                );
+            }
+            e => panic!(
+                "unexpected error occurred when sending funds while cancelling an ask: {:?}",
+                e
+            ),
         }
     }
 }

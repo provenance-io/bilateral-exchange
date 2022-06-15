@@ -1,8 +1,8 @@
-use crate::storage::bid_order::{get_bid_order_by_id, BidCollateral};
+use crate::storage::bid_order::{delete_bid_order_by_id, get_bid_order_by_id, BidCollateral};
 use crate::storage::contract_info::get_contract_info;
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
-use cosmwasm_std::{to_binary, BankMsg, CosmosMsg, DepsMut, Env, MessageInfo, Response};
+use cosmwasm_std::{to_binary, BankMsg, DepsMut, Env, MessageInfo, Response};
 use provwasm_std::{ProvenanceMsg, ProvenanceQuery};
 
 // cancel bid entrypoint
@@ -36,6 +36,8 @@ pub fn cancel_bid(
         BidCollateral::Coin { quote, .. } => quote.to_owned(),
         BidCollateral::Marker { quote, .. } => quote.to_owned(),
     };
+    // Remove the bid order from storage now that it is no longer needed
+    delete_bid_order_by_id(deps.storage, &id)?;
     Response::new()
         .add_message(BankMsg::Send {
             to_address: bid_order.owner.to_string(),
@@ -51,10 +53,10 @@ mod tests {
     use crate::contract::execute;
     use crate::storage::bid_order::get_bid_order_by_id;
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
-    use crate::types::bid_base::BidBase;
+    use crate::types::bid::Bid;
     use crate::types::msg::ExecuteMsg;
     use cosmwasm_std::testing::{mock_env, mock_info};
-    use cosmwasm_std::{attr, coins, Addr, BankMsg, Coin, CosmosMsg, Timestamp, Uint128};
+    use cosmwasm_std::{attr, coins, Addr, BankMsg, CosmosMsg, Timestamp};
     use provwasm_mocks::mock_dependencies;
 
     #[test]
@@ -74,7 +76,7 @@ mod tests {
         // create bid data
         let bidder_info = mock_info("bidder", &coins(100, "quote_1"));
         let create_bid_msg = ExecuteMsg::CreateBid {
-            base: BidBase::new_coin("bid_id", coins(200, "base_1"), Some(Timestamp::default())),
+            bid: Bid::new_coin("bid_id", coins(200, "base_1"), Some(Timestamp::default())),
         };
 
         // execute create bid
@@ -119,6 +121,9 @@ mod tests {
         }
 
         // verify bid order removed from storage
-        assert!(get_bid_order_by_id(deps.as_ref().storage, "bid_id").is_err());
+        assert!(
+            get_bid_order_by_id(deps.as_ref().storage, "bid_id").is_err(),
+            "the bid should be removed from storage after a successful cancellation",
+        );
     }
 }

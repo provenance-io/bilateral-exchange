@@ -1,10 +1,11 @@
 use std::env::current_dir;
 use std::fs::create_dir_all;
 
+use bilateral_exchange::storage::ask_order::AskOrder;
+use bilateral_exchange::storage::bid_order::BidOrder;
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 
 use bilateral_exchange::storage::contract_info::ContractInfo;
-use bilateral_exchange::storage::state::{AskOrder, BidOrder};
 use bilateral_exchange::types::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 fn main() {
@@ -12,7 +13,6 @@ fn main() {
     out_dir.push("schema");
     create_dir_all(&out_dir).unwrap();
     remove_schemas(&out_dir).unwrap();
-
     export_schema(&schema_for!(AskOrder), &out_dir);
     export_schema(&schema_for!(BidOrder), &out_dir);
     export_schema(&schema_for!(ContractInfo), &out_dir);

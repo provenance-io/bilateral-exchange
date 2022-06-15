@@ -9,7 +9,7 @@ use crate::query::query_bid::query_bid;
 use crate::query::query_contract_info::query_contract_info;
 use crate::types::error::ContractError;
 use crate::types::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use cosmwasm_std::{entry_point, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult};
+use cosmwasm_std::{entry_point, Binary, Deps, DepsMut, Env, MessageInfo, Response};
 use provwasm_std::{ProvenanceMsg, ProvenanceQuery};
 
 // smart contract initialization entrypoint
@@ -32,12 +32,8 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     match msg {
-        ExecuteMsg::CreateAsk { ask: base } => create_ask(deps, info, env, base),
-        ExecuteMsg::CreateBid {
-            id,
-            base,
-            effective_time,
-        } => create_bid(deps, info, id, base, effective_time),
+        ExecuteMsg::CreateAsk { ask } => create_ask(deps, info, env, ask),
+        ExecuteMsg::CreateBid { bid } => create_bid(deps, info, bid),
         ExecuteMsg::CancelAsk { id } => cancel_ask(deps, env, info, id),
         ExecuteMsg::CancelBid { id } => cancel_bid(deps, env, info, id),
         ExecuteMsg::ExecuteMatch { ask_id, bid_id } => {
@@ -48,7 +44,11 @@ pub fn execute(
 
 // smart contract query entrypoint
 #[entry_point]
-pub fn query(deps: Deps<ProvenanceQuery>, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+pub fn query(
+    deps: Deps<ProvenanceQuery>,
+    _env: Env,
+    msg: QueryMsg,
+) -> Result<Binary, ContractError> {
     match msg {
         QueryMsg::GetAsk { id } => query_ask(deps, id),
         QueryMsg::GetBid { id } => query_bid(deps, id),

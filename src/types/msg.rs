@@ -1,5 +1,5 @@
-use crate::types::ask_base::AskBase;
-use crate::types::bid_base::BidBase;
+use crate::types::ask::Ask;
+use crate::types::bid::Bid;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -14,8 +14,8 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     CancelAsk { id: String },
     CancelBid { id: String },
-    CreateAsk { ask: AskBase },
-    CreateBid { base: BidBase },
+    CreateAsk { ask: Ask },
+    CreateBid { bid: Bid },
     ExecuteMatch { ask_id: String, bid_id: String },
 }
 

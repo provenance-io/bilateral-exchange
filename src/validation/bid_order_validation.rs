@@ -39,26 +39,28 @@ pub fn validate_bid_order(bid_order: &BidOrder) -> Result<(), ContractError> {
         }
     };
     let validate_coin = |coin: &Coin, coin_type: &str| {
+        let mut messages: Vec<String> = vec![];
         if coin.amount.u128() == 0 {
-            invalid_field_messages.push(
+            messages.push(
                 format!(
                     "Zero amounts not allowed on coins. Coin denom [{}] and type [{}] for BidOrder [{}]",
-                    coin.denom,
+                    &coin.denom,
                     coin_type,
-                    bid_order.id,
+                    &bid_order.id,
                 )
             );
         }
         if coin.denom.is_empty() {
-            invalid_field_messages.push(
+            messages.push(
                 format!(
                     "Blank denoms not allowed on coins. Coin amount [{}] and type [{}] for BidOrder [{}]",
                     coin.amount.u128(),
                     coin_type,
-                    bid_order.id,
+                    &bid_order.id,
                 )
             );
         }
+        messages
     };
     match &bid_order.collateral {
         BidCollateral::Coin { base, quote } => {
@@ -67,23 +69,30 @@ pub fn validate_bid_order(bid_order: &BidOrder) -> Result<(), ContractError> {
                     "BidCollateral for BidOrder [{}] of type coin must include base funds",
                     bid_order.id,
                 ));
-                base.iter()
-                    .for_each(|coin| validate_coin(coin, "BidCollateral Base Coin"));
+                invalid_field_messages.append(
+                    &mut base
+                        .iter()
+                        .flat_map(|coin| validate_coin(coin, "BidCollateral Base Coin"))
+                        .collect(),
+                );
             }
             if quote.is_empty() {
                 invalid_field_messages.push(format!(
                     "BidCollateral for BidOrder [{}] of type coin must include base funds",
                     bid_order.id,
                 ));
-                quote
-                    .iter()
-                    .for_each(|coin| validate_coin(coin, "BidCollateral Quote Coin"));
+                invalid_field_messages.append(
+                    &mut quote
+                        .iter()
+                        .flat_map(|coin| validate_coin(coin, "BidCollateral Quote Coin"))
+                        .collect(),
+                );
             }
         }
         BidCollateral::Marker {
             address,
             denom,
-            quote: base,
+            quote,
         } => {
             if address.as_str().is_empty() {
                 invalid_field_messages.push(format!(
@@ -97,7 +106,12 @@ pub fn validate_bid_order(bid_order: &BidOrder) -> Result<(), ContractError> {
                     bid_order.id,
                 ));
             }
-            validate_coin(&base, "BidCollateral Base Coin");
+            invalid_field_messages.append(
+                &mut quote
+                    .iter()
+                    .flat_map(|coin| validate_coin(coin, "BidCollateral Quote Coin"))
+                    .collect(),
+            );
         }
     }
     if invalid_field_messages.is_empty() {

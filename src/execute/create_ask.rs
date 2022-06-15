@@ -1,5 +1,5 @@
 use crate::storage::ask_order::{get_ask_order_by_id, insert_ask_order, AskCollateral, AskOrder};
-use crate::types::ask_base::{AskBase, CoinAskBase, MarkerAskBase};
+use crate::types::ask::{Ask, CoinAsk, MarkerAsk};
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
 use crate::validation::marker_validation::validate_marker_for_ask;
@@ -10,20 +10,20 @@ pub fn create_ask(
     deps: DepsMut<ProvenanceQuery>,
     info: MessageInfo,
     env: Env,
-    ask_base: AskBase,
+    ask: Ask,
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     // If loading an ask by the target id returns an Ok response, then the requested id already
     // exists in storage and should not be overwritten
-    if get_ask_order_by_id(deps.storage, ask_base.get_id()).is_ok() {
+    if get_ask_order_by_id(deps.storage, ask.get_id()).is_ok() {
         return ContractError::ExistingId {
             id_type: "ask".to_string(),
-            id: ask_base.get_id().to_string(),
+            id: ask.get_id().to_string(),
         }
         .to_err();
     }
-    match ask_base {
-        AskBase::Coin(coin_ask) => create_coin_ask(deps, info, coin_ask),
-        AskBase::Marker(marker_ask) => create_marker_ask(deps, info, env, marker_ask),
+    match ask {
+        Ask::Coin(coin_ask) => create_coin_ask(deps, info, coin_ask),
+        Ask::Marker(marker_ask) => create_marker_ask(deps, info, env, marker_ask),
     }
 }
 
@@ -31,7 +31,7 @@ pub fn create_ask(
 pub fn create_coin_ask(
     deps: DepsMut<ProvenanceQuery>,
     info: MessageInfo,
-    coin_ask: CoinAskBase,
+    coin_ask: CoinAsk,
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     if info.funds.is_empty() {
         return ContractError::InvalidFundsProvided {
@@ -70,7 +70,7 @@ pub fn create_marker_ask(
     deps: DepsMut<ProvenanceQuery>,
     info: MessageInfo,
     env: Env,
-    marker_ask: MarkerAskBase,
+    marker_ask: MarkerAsk,
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     if !info.funds.is_empty() {
         return ContractError::InvalidFundsProvided {
@@ -97,6 +97,7 @@ pub fn create_marker_ask(
         AskCollateral::Marker {
             address: marker.address,
             denom: marker.denom,
+            quote_per_share: marker_ask.quote_per_share,
             removed_permissions: marker
                 .permissions
                 .into_iter()
@@ -121,9 +122,8 @@ mod tests {
     use crate::types::constants::ASK_TYPE_COIN;
     use crate::types::msg::ExecuteMsg;
     use cosmwasm_std::testing::{mock_env, mock_info};
-    use cosmwasm_std::{coin, coins, Addr};
+    use cosmwasm_std::{coins, Addr};
     use provwasm_mocks::mock_dependencies;
-    use schemars::_serde_json::{from_str, to_string};
 
     #[test]
     fn create_coin_ask_with_valid_data() {
@@ -141,7 +141,7 @@ mod tests {
 
         // create ask data
         let create_ask_msg = ExecuteMsg::CreateAsk {
-            ask: AskBase::new_coin("ask_id", coins(100, "quote_1")),
+            ask: Ask::new_coin("ask_id", coins(100, "quote_1")),
         };
 
         let asker_info = mock_info("asker", &coins(2, "base_1"));
@@ -167,7 +167,7 @@ mod tests {
 
         // verify ask order stored
         if let ExecuteMsg::CreateAsk {
-            ask: AskBase::Coin(CoinAskBase { id, quote }),
+            ask: Ask::Coin(CoinAsk { id, quote }),
         } = create_ask_msg
         {
             match get_ask_order_by_id(deps.as_ref().storage, "ask_id") {
@@ -210,7 +210,7 @@ mod tests {
 
         // create ask invalid data
         let create_ask_msg = ExecuteMsg::CreateAsk {
-            ask: AskBase::new_coin("", vec![]),
+            ask: Ask::new_coin("", vec![]),
         };
 
         // handle create ask
@@ -219,22 +219,23 @@ mod tests {
             mock_env(),
             mock_info("asker", &[]),
             create_ask_msg,
-        );
+        )
+        .expect_err("an error should occur when an invalid funds are provided");
 
         // verify handle create ask response returns ContractError::MissingField { id }
         match create_ask_response {
-            Ok(_) => panic!("expected error, but handle_create_ask_response ok"),
-            Err(error) => match error {
-                ContractError::MissingField { field } => {
-                    assert_eq!(field, "id")
-                }
-                error => panic!("unexpected error: {:?}", error),
-            },
-        }
+            ContractError::InvalidFundsProvided { message } => {
+                assert_eq!("coin ask requests should include funds", message,)
+            }
+            e => panic!(
+                "unexpected error when including no funds in an ask request: {:?}",
+                e
+            ),
+        };
 
         // create ask missing id
         let create_ask_msg = ExecuteMsg::CreateAsk {
-            ask: AskBase::new_coin("", coins(100, "quote_1")),
+            ask: Ask::new_coin("", coins(100, "quote_1")),
         };
 
         // handle create ask
@@ -258,7 +259,7 @@ mod tests {
 
         // create ask missing quote
         let create_ask_msg = ExecuteMsg::CreateAsk {
-            ask: AskBase::new_coin("id", vec![]),
+            ask: Ask::new_coin("id", vec![]),
         };
 
         // execute create ask
@@ -282,7 +283,7 @@ mod tests {
 
         // create ask missing base
         let create_ask_msg = ExecuteMsg::CreateAsk {
-            ask: AskBase::new_coin("id", coins(100, "quote_1")),
+            ask: Ask::new_coin("id", coins(100, "quote_1")),
         };
 
         // execute create ask

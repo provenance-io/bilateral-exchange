@@ -1,9 +1,11 @@
 use crate::storage::bid_order::get_bid_order_by_id;
-use cosmwasm_std::{to_binary, Binary, Deps, StdResult};
+use crate::types::error::ContractError;
+use crate::util::extensions::ResultExtensions;
+use cosmwasm_std::{to_binary, Binary, Deps};
 use provwasm_std::ProvenanceQuery;
 
-pub fn query_bid(deps: Deps<ProvenanceQuery>, id: String) -> StdResult<Binary> {
-    to_binary(&get_bid_order_by_id(deps.storage, id)?)
+pub fn query_bid(deps: Deps<ProvenanceQuery>, id: String) -> Result<Binary, ContractError> {
+    to_binary(&get_bid_order_by_id(deps.storage, id)?)?.to_ok()
 }
 
 #[cfg(test)]
@@ -51,8 +53,12 @@ mod tests {
             QueryMsg::GetBid {
                 id: bid_order.id.clone(),
             },
-        );
+        )
+        .expect("expected the query to execute successfully");
 
-        assert_eq!(query_bid_response, to_binary(&bid_order));
+        assert_eq!(
+            query_bid_response,
+            to_binary(&bid_order).expect("expected binary serialization to succeed for bid order"),
+        );
     }
 }

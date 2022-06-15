@@ -1,8 +1,7 @@
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
-use cosmwasm_std::{coin, Addr, Coin, Uint128};
+use cosmwasm_std::{coin, Addr, Coin};
 use provwasm_std::{Marker, MarkerAccess};
-use std::ops::Mul;
 
 pub fn marker_has_admin(marker: &Marker, expected_admin: &Addr) -> bool {
     marker.permissions.iter().any(|permission| {

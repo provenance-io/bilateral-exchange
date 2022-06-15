@@ -4,9 +4,9 @@ use crate::types::constants::{
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
 use crate::validation::ask_order_validation::validate_ask_order;
-use cosmwasm_std::{Addr, Coin, StdError, Storage};
+use cosmwasm_std::{Addr, Coin, Storage};
 use cw_storage_plus::{Index, IndexList, IndexedMap, MultiIndex};
-use provwasm_std::{AccessGrant, MarkerAccess, MarkerStatus};
+use provwasm_std::AccessGrant;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
