@@ -1,16 +1,23 @@
-use crate::storage::ask_order::{get_ask_order_by_id, AskOrder};
-use crate::storage::bid_order::{get_bid_order_by_id, BidOrder};
+use crate::storage::ask_order::{
+    delete_ask_order_by_id, get_ask_order_by_id, AskCollateral, AskOrder,
+};
+use crate::storage::bid_order::{get_bid_order_by_id, BidCollateral, BidOrder};
 use crate::storage::contract_info::get_contract_info;
-use crate::types::constants::{ASK_TYPE_COIN, BID_TYPE_COIN};
+use crate::types::constants::{ASK_TYPE_COIN, ASK_TYPE_MARKER, BID_TYPE_COIN, BID_TYPE_MARKER};
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
-use cosmwasm_std::{attr, BankMsg, Coin, DepsMut, Env, MessageInfo, Response};
-use provwasm_std::{ProvenanceMsg, ProvenanceQuery};
+use crate::util::provenance_utilities::get_marker_quote;
+use cosmwasm_std::WasmQuery::ContractInfo;
+use cosmwasm_std::{attr, BankMsg, Coin, CosmosMsg, DepsMut, Env, MessageInfo, Response};
+use provwasm_std::{
+    grant_marker_access, revoke_marker_access, MarkerAccess, ProvenanceMsg, ProvenanceQuerier,
+    ProvenanceQuery,
+};
 
 // match and execute an ask and bid order
 pub fn execute_match(
     deps: DepsMut<ProvenanceQuery>,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     ask_id: String,
     bid_id: String,
@@ -55,51 +62,154 @@ pub fn execute_match(
         }.to_err();
     }
 
-    if !is_executable(&ask_order, &bid_order) {
+    if !is_executable(&deps, &ask_order, &bid_order)? {
         return Err(ContractError::AskBidMismatch);
     }
-
-    // 'send quote to asker' and 'send base to bidder' messages
-    let response = Response::new()
-        .add_messages(vec![
-            BankMsg::Send {
+    let mut messages: Vec<CosmosMsg<ProvenanceMsg>> = vec![];
+    match &ask_order.collateral {
+        // Send quote to asker when a coin match is made
+        AskCollateral::Coin { quote, .. } => messages.push(CosmosMsg::Bank(BankMsg::Send {
+            to_address: ask_order.owner.to_string(),
+            amount: quote.to_owned(),
+        })),
+        // Now that the match has been made, grant all permissions on the marker to the bidder that
+        // the asker once had.  The validation code has already ensured that the asker was an admin
+        // of the marker, so the bidder at very least has the permission on the marker to grant
+        // themselves any remaining permissions they desire.
+        AskCollateral::Marker {
+            denom,
+            removed_permissions,
+            ..
+        } => {
+            if let Some(asker_permissions) = removed_permissions
+                .iter()
+                .find(|perm| perm.address == ask_order.owner)
+            {
+                messages.push(grant_marker_access(
+                    denom,
+                    bid_order.owner.clone(),
+                    asker_permissions.permissions.to_owned(),
+                )?);
+            } else {
+                return ContractError::AskBidMismatch.to_err();
+            }
+        }
+    };
+    match &bid_order.collateral {
+        // Send base to bidder when a coin match is made
+        BidCollateral::Coin { base, .. } => messages.push(CosmosMsg::Bank(BankMsg::Send {
+            to_address: bid_order.owner.to_string(),
+            amount: base.to_owned(),
+        })),
+        BidCollateral::Marker {
+            address,
+            denom,
+            quote,
+        } => {
+            // Send the entirety of the quote to the asker. They have just effectively sold their
+            // marker to the bidder.
+            messages.push(CosmosMsg::Bank(BankMsg::Send {
                 to_address: ask_order.owner.to_string(),
-                amount: ask_order.quote,
-            },
-            BankMsg::Send {
-                to_address: bid_order.owner.to_string(),
-                amount: bid_order.base,
-            },
-        ])
-        .add_attributes(vec![attr("action", "execute")]);
+                amount: quote.to_owned(),
+            }));
+            messages.push(revoke_marker_access(denom, env.contract.address)?);
+        }
+    }
+    // Now that all matching has concluded, we simply need to delete the ask and bid from storage
+    delete_ask_order_by_id(deps.storage, &ask_order.id)?;
+    delete_ask_order_by_id(deps.storage, &bid_order.id)?;
 
-    // finally remove the orders from storage
-    get_ask_storage(deps.storage).remove(ask_id.as_bytes());
-    get_bid_storage(deps.storage).remove(bid_id.as_bytes());
-
-    Ok(response)
+    Response::new()
+        .add_messages(messages)
+        .add_attribute("action", "execute")
+        .add_attribute("ask_id", &ask_order.id)
+        .add_attribute("bid_id", &bid_order.id)
+        .to_ok()
 }
 
 fn validate_matching_orders(ask_order: &AskOrder, bid_order: &BidOrder) -> bool {
     ask_order.ask_type == ASK_TYPE_COIN && bid_order.bid_type == BID_TYPE_COIN
 }
 
-fn is_executable(ask_order: &AskOrder, bid_order: &BidOrder) -> bool {
+fn is_executable(
+    deps: &DepsMut<ProvenanceQuery>,
+    ask_order: &AskOrder,
+    bid_order: &BidOrder,
+) -> Result<bool, ContractError> {
+    match ask_order.ask_type.as_str() {
+        ASK_TYPE_COIN => match bid_order.bid_type.as_str() {
+            BID_TYPE_COIN => is_coin_match_executable(ask_order, bid_order),
+            _ => ContractError::AskBidMismatch.to_err(),
+        },
+        ASK_TYPE_MARKER => match bid_order.bid_type.as_str() {
+            BID_TYPE_MARKER => is_marker_match_executable(deps, ask_order, bid_order),
+            _ => ContractError::AskBidMismatch.to_err(),
+        },
+        _ => ContractError::AskBidMismatch.to_err(),
+    }
+}
+
+fn is_coin_match_executable(
+    ask_order: &AskOrder,
+    bid_order: &BidOrder,
+) -> Result<bool, ContractError> {
+    let (mut ask_base, mut ask_quote) =
+        if let AskCollateral::Coin { base, quote } = &ask_order.collateral {
+            (base.to_owned(), quote.to_owned())
+        } else {
+            return ContractError::AskBidMismatch.to_err();
+        };
+    let (mut bid_base, mut bid_quote) =
+        if let BidCollateral::Coin { base, quote } = &bid_order.collateral {
+            (base.to_owned(), quote.to_owned())
+        } else {
+            return ContractError::AskBidMismatch.to_err();
+        };
     // sort the base and quote vectors by the order chain: denom, amount
     let coin_sorter =
         |a: &Coin, b: &Coin| a.denom.cmp(&b.denom).then_with(|| a.amount.cmp(&b.amount));
-
-    let mut ask_base = ask_order.base.to_owned();
     ask_base.sort_by(coin_sorter);
-    let mut bid_base = bid_order.base.to_owned();
     bid_base.sort_by(coin_sorter);
-
-    let mut ask_quote = ask_order.quote.to_owned();
     ask_quote.sort_by(coin_sorter);
-    let mut bid_quote = bid_order.quote.to_owned();
     bid_quote.sort_by(coin_sorter);
 
-    ask_base == bid_base && ask_quote == bid_quote
+    (ask_base == bid_base && ask_quote == bid_quote).to_ok()
+}
+
+fn is_marker_match_executable(
+    deps: &DepsMut<ProvenanceQuery>,
+    ask_order: &AskOrder,
+    bid_order: &BidOrder,
+) -> Result<bool, ContractError> {
+    let (ask_address, ask_denom, ask_quote_per_share) = if let AskCollateral::Marker {
+        address,
+        denom,
+        quote_per_share,
+        ..
+    } = &ask_order.collateral
+    {
+        (address, denom, quote_per_share)
+    } else {
+        return ContractError::AskBidMismatch.to_err();
+    };
+    let (bid_address, bid_denom, mut bid_quote) = if let BidCollateral::Marker {
+        address,
+        denom,
+        quote,
+    } = &bid_order.collateral
+    {
+        (address, denom, quote.to_owned())
+    } else {
+        return ContractError::AskBidMismatch.to_err();
+    };
+    let marker = ProvenanceQuerier::new(&deps.querier).get_marker_by_denom(ask_denom)?;
+    let mut ask_quote = get_marker_quote(&marker, &ask_quote_per_share);
+    // sort the base and quote vectors by the order chain: denom, amount
+    let coin_sorter =
+        |a: &Coin, b: &Coin| a.denom.cmp(&b.denom).then_with(|| a.amount.cmp(&b.amount));
+    ask_quote.sort_by(coin_sorter);
+    bid_quote.sort_by(coin_sorter);
+    (ask_address == bid_address && ask_denom == bid_denom && ask_quote == bid_quote).to_ok()
 }
 
 #[cfg(test)]

@@ -1,7 +1,8 @@
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
-use cosmwasm_std::{Addr, Coin};
+use cosmwasm_std::{coin, Addr, Coin, Uint128};
 use provwasm_std::{Marker, MarkerAccess};
+use std::ops::Mul;
 
 pub fn marker_has_admin(marker: &Marker, expected_admin: &Addr) -> bool {
     marker.permissions.iter().any(|permission| {
@@ -37,4 +38,13 @@ pub fn get_single_marker_coin_holding(marker: &Marker) -> Result<Coin, ContractE
         .to_err();
     }
     marker_coin.to_owned().to_ok()
+}
+
+pub fn get_marker_quote(marker: &Marker, quote_per_share: &[Coin]) -> Vec<Coin> {
+    let marker_share_count = marker.total_supply.atomics().u128();
+    quote_per_share
+        .iter()
+        .map(|c| coin(c.amount.u128() * marker_share_count, &c.denom))
+        .to_owned()
+        .collect()
 }
