@@ -1,17 +1,17 @@
-use crate::storage::state::get_bid_storage_read;
+use crate::storage::bid_order::get_bid_order_by_id;
 use cosmwasm_std::{to_binary, Binary, Deps, StdResult};
 use provwasm_std::ProvenanceQuery;
 
 pub fn query_bid(deps: Deps<ProvenanceQuery>, id: String) -> StdResult<Binary> {
-    to_binary(&get_bid_storage_read(deps.storage).load(id.as_bytes())?)
+    to_binary(&get_bid_order_by_id(deps.storage, id)?)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::contract::query;
+    use crate::storage::bid_order::{insert_bid_order, BidCollateral, BidOrder};
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
-    use crate::storage::state::{get_bid_storage, BidOrder};
     use crate::types::msg::QueryMsg;
     use cosmwasm_std::testing::mock_env;
     use cosmwasm_std::{coins, Addr, Timestamp};
@@ -33,16 +33,14 @@ mod tests {
         }
 
         // store valid bid order
-        let bid_order = BidOrder {
-            base: coins(100, "base_1"),
-            effective_time: Some(Timestamp::default()),
-            id: "bid_id".into(),
-            owner: Addr::unchecked("bidder"),
-            quote: coins(100, "quote_1"),
-        };
+        let bid_order = BidOrder::new_unchecked(
+            "bid_id",
+            Addr::unchecked("bidder"),
+            BidCollateral::coin(coins(100, "base_1"), coins(100, "quote_1")),
+            Some(Timestamp::default()),
+        );
 
-        let mut bid_storage = get_bid_storage(&mut deps.storage);
-        if let Err(error) = bid_storage.save(bid_order.id.as_bytes(), &bid_order) {
+        if let Err(error) = insert_bid_order(deps.as_mut().storage, &bid_order) {
             panic!("unexpected error: {:?}", error);
         };
 

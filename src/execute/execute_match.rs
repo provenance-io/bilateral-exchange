@@ -1,9 +1,9 @@
+use crate::storage::ask_order::{get_ask_order_by_id, AskOrder};
+use crate::storage::bid_order::{get_bid_order_by_id, BidOrder};
 use crate::storage::contract_info::get_contract_info;
-use crate::storage::state::{
-    get_ask_storage, get_ask_storage_read, get_bid_storage, get_bid_storage_read, AskOrder,
-    BidOrder,
-};
+use crate::types::constants::{ASK_TYPE_COIN, BID_TYPE_COIN};
 use crate::types::error::ContractError;
+use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::{attr, BankMsg, Coin, DepsMut, Env, MessageInfo, Response};
 use provwasm_std::{ProvenanceMsg, ProvenanceQuery};
 
@@ -19,31 +19,41 @@ pub fn execute_match(
     if info.sender != get_contract_info(deps.storage)?.admin {
         return Err(ContractError::Unauthorized);
     }
-
-    // return error if id is empty
-    if ask_id.is_empty() || bid_id.is_empty() {
-        return Err(ContractError::Unauthorized);
-    }
-
     // return error if funds sent
     if !info.funds.is_empty() {
-        return Err(ContractError::ExecuteWithFunds);
+        return ContractError::InvalidFundsProvided {
+            message: "funds should not be provided during match execution".to_string(),
+        }
+        .to_err();
+    }
+    let mut invalid_fields: Vec<String> = vec![];
+    if ask_id.is_empty() {
+        invalid_fields.push("ask id must not be empty".to_string());
+    }
+    if bid_id.is_empty() {
+        invalid_fields.push("bid id must not be empty".to_string());
+    }
+    // return error if either ids are badly formed
+    if !invalid_fields.is_empty() {
+        return ContractError::InvalidFields {
+            messages: invalid_fields,
+        }
+        .to_err();
     }
 
-    let ask_storage_read = get_ask_storage_read(deps.storage);
-    let ask_order_result = ask_storage_read.load(ask_id.as_bytes());
-    if ask_order_result.is_err() {
-        return Err(ContractError::AskBidMismatch);
-    }
+    let ask_order = get_ask_order_by_id(deps.storage, ask_id)?;
+    let bid_order = get_bid_order_by_id(deps.storage, bid_id)?;
 
-    let bid_storage_read = get_bid_storage_read(deps.storage);
-    let bid_order_result = bid_storage_read.load(bid_id.as_bytes());
-    if bid_order_result.is_err() {
-        return Err(ContractError::AskBidMismatch);
+    if ask_order.get_matching_bid_type() != bid_order.bid_type {
+        return ContractError::InvalidFields {
+            messages: vec![format!("AskOrder with id [{}] and type [{}] must be matched with bid type [{}], but BidOrder with id [{}] had type [{}]",
+            ask_order.id,
+            ask_order.ask_type,
+            ask_order.get_matching_bid_type(),
+            bid_order.id,
+            bid_order.bid_type)]
+        }.to_err();
     }
-
-    let ask_order = ask_order_result.unwrap();
-    let bid_order = bid_order_result.unwrap();
 
     if !is_executable(&ask_order, &bid_order) {
         return Err(ContractError::AskBidMismatch);
@@ -68,6 +78,10 @@ pub fn execute_match(
     get_bid_storage(deps.storage).remove(bid_id.as_bytes());
 
     Ok(response)
+}
+
+fn validate_matching_orders(ask_order: &AskOrder, bid_order: &BidOrder) -> bool {
+    ask_order.ask_type == ASK_TYPE_COIN && bid_order.bid_type == BID_TYPE_COIN
 }
 
 fn is_executable(ask_order: &AskOrder, bid_order: &BidOrder) -> bool {

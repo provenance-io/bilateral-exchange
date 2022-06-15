@@ -1,4 +1,6 @@
-use crate::types::constants::{BID_TYPE_COIN, BID_TYPE_MARKER};
+use crate::types::constants::{
+    ASK_TYPE_COIN, ASK_TYPE_MARKER, BID_TYPE_COIN, BID_TYPE_MARKER, UNKNOWN_TYPE,
+};
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
 use crate::validation::bid_order_validation::validate_bid_order;
@@ -53,6 +55,14 @@ impl BidOrder {
     pub fn get_pk(&self) -> &[u8] {
         self.id.as_bytes()
     }
+
+    pub fn get_matching_ask_type(&self) -> &str {
+        match self.bid_type.as_str() {
+            BID_TYPE_COIN => ASK_TYPE_COIN,
+            BID_TYPE_MARKER => ASK_TYPE_MARKER,
+            _ => UNKNOWN_TYPE,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
@@ -65,7 +75,7 @@ pub enum BidCollateral {
     Marker {
         address: Addr,
         denom: String,
-        base: Coin,
+        quote: Vec<Coin>,
     },
 }
 impl BidCollateral {
@@ -73,11 +83,11 @@ impl BidCollateral {
         Self::Coin { base, quote }
     }
 
-    pub fn marker<S: Into<String>>(address: Addr, denom: S, base: Coin) -> Self {
+    pub fn marker<S: Into<String>>(address: Addr, denom: S, quote: Vec<Coin>) -> Self {
         Self::Marker {
             address,
             denom: denom.into(),
-            base,
+            quote,
         }
     }
 }

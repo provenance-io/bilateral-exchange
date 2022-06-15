@@ -17,9 +17,9 @@ impl AskBase {
     pub fn new_marker<S1: Into<String>, S2: Into<String>>(
         id: S1,
         denom: S2,
-        price_per_share: Coin,
+        quote_per_share: Vec<Coin>,
     ) -> Self {
-        Self::Marker(MarkerAskBase::new(id, denom, price_per_share))
+        Self::Marker(MarkerAskBase::new(id, denom, quote_per_share))
     }
 
     pub fn get_id(&self) -> &str {
@@ -61,18 +61,18 @@ impl CoinAskBase {
 pub struct MarkerAskBase {
     pub id: String,
     pub denom: String,
-    pub price_per_share: Coin,
+    pub quote_per_share: Vec<Coin>,
 }
 impl MarkerAskBase {
     pub fn new<S1: Into<String>, S2: Into<String>>(
         id: S1,
         denom: S2,
-        price_per_share: Coin,
+        quote_per_share: Vec<Coin>,
     ) -> Self {
         Self {
             id: id.into(),
             denom: denom.into(),
-            price_per_share,
+            quote_per_share,
         }
     }
 }

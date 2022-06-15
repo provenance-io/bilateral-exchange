@@ -34,7 +34,7 @@ pub fn cancel_bid(
     }
     let coin_to_send = match &bid_order.collateral {
         BidCollateral::Coin { quote, .. } => quote.to_owned(),
-        BidCollateral::Marker { base, .. } => vec![base.to_owned()],
+        BidCollateral::Marker { quote, .. } => quote.to_owned(),
     };
     Response::new()
         .add_message(BankMsg::Send {

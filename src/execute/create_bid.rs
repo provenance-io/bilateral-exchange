@@ -77,15 +77,9 @@ pub fn create_marker_bid(
         }
         .to_err();
     }
-    if marker_bid.base.denom.is_empty() {
-        return ContractError::MissingField {
-            field: "base.denom".to_string(),
-        }
-        .to_err();
-    }
-    if marker_bid.base.amount.u128() == 0 {
-        return ContractError::MissingField {
-            field: "base.amount".to_string(),
+    if info.funds.is_empty() {
+        return ContractError::InvalidFundsProvided {
+            message: "funds must be provided during a marker bid to establish a quote".to_string(),
         }
         .to_err();
     }
@@ -94,7 +88,7 @@ pub fn create_marker_bid(
     let bid_order = BidOrder::new(
         &marker_bid.id,
         info.sender,
-        BidCollateral::marker(marker.address, &marker_bid.denom, marker_bid.base),
+        BidCollateral::marker(marker.address, &marker_bid.denom, info.funds),
         marker_bid.effective_time,
     )?;
     insert_bid_order(deps.storage, &bid_order)?;

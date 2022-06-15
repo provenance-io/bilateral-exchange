@@ -21,10 +21,9 @@ impl BidBase {
     pub fn new_marker<S1: Into<String>, S2: Into<String>>(
         id: S1,
         denom: S2,
-        base: Coin,
         effective_time: Option<Timestamp>,
     ) -> Self {
-        Self::Marker(MarkerBidBase::new(id, denom, base, effective_time))
+        Self::Marker(MarkerBidBase::new(id, denom, effective_time))
     }
 
     pub fn get_id(&self) -> &str {
@@ -68,20 +67,17 @@ impl CoinBidBase {
 pub struct MarkerBidBase {
     pub id: String,
     pub denom: String,
-    pub base: Coin,
     pub effective_time: Option<Timestamp>,
 }
 impl MarkerBidBase {
     pub fn new<S1: Into<String>, S2: Into<String>>(
         id: S1,
         denom: S2,
-        base: Coin,
         effective_time: Option<Timestamp>,
     ) -> Self {
         Self {
             id: id.into(),
             denom: denom.into(),
-            base,
             effective_time,
         }
     }

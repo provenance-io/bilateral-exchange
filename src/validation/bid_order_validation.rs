@@ -83,7 +83,7 @@ pub fn validate_bid_order(bid_order: &BidOrder) -> Result<(), ContractError> {
         BidCollateral::Marker {
             address,
             denom,
-            base,
+            quote: base,
         } => {
             if address.as_str().is_empty() {
                 invalid_field_messages.push(format!(
