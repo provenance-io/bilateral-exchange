@@ -23,23 +23,34 @@ pub fn create_ask(
         }
         .to_err();
     }
-    let collateral = match &ask {
+    let ask_creation_data = match &ask {
         Ask::Coin(coin_ask) => create_coin_ask_collateral(&info, &coin_ask),
         Ask::Marker(marker_ask) => create_marker_ask_collateral(&deps, &info, &env, &marker_ask),
     }?;
-    let ask_order = AskOrder::new(ask.get_id(), info.sender, collateral, descriptor)?;
+    let ask_order = AskOrder::new(
+        ask.get_id(),
+        info.sender,
+        ask_creation_data.collateral,
+        descriptor,
+    )?;
     insert_ask_order(deps.storage, &ask_order)?;
     Response::new()
+        .add_messages(ask_creation_data.messages)
         .add_attribute("action", "create_ask")
         .set_data(to_binary(&ask_order)?)
         .to_ok()
+}
+
+struct AskCreationData {
+    pub collateral: AskCollateral,
+    pub messages: Vec<CosmosMsg<ProvenanceMsg>>,
 }
 
 // create ask entrypoint
 fn create_coin_ask_collateral(
     info: &MessageInfo,
     coin_ask: &CoinAsk,
-) -> Result<AskCollateral, ContractError> {
+) -> Result<AskCreationData, ContractError> {
     if info.funds.is_empty() {
         return ContractError::InvalidFundsProvided {
             message: "coin ask requests should include funds".to_string(),
@@ -56,7 +67,11 @@ fn create_coin_ask_collateral(
         .to_err();
     }
 
-    AskCollateral::coin(&info.funds, &coin_ask.quote).to_ok()
+    AskCreationData {
+        collateral: AskCollateral::coin(&info.funds, &coin_ask.quote),
+        messages: vec![],
+    }
+    .to_ok()
 }
 
 fn create_marker_ask_collateral(
@@ -64,7 +79,7 @@ fn create_marker_ask_collateral(
     info: &MessageInfo,
     env: &Env,
     marker_ask: &MarkerAsk,
-) -> Result<AskCollateral, ContractError> {
+) -> Result<AskCreationData, ContractError> {
     if !info.funds.is_empty() {
         return ContractError::InvalidFundsProvided {
             message: format!("marker ask requests should not include funds"),
@@ -84,15 +99,18 @@ fn create_marker_ask_collateral(
             permission.clone().address,
         )?);
     }
-    AskCollateral::Marker {
-        address: marker.address,
-        denom: marker.denom,
-        quote_per_share: marker_ask.quote_per_share.to_owned(),
-        removed_permissions: marker
-            .permissions
-            .into_iter()
-            .filter(|perm| perm.address != env.contract.address)
-            .collect(),
+    AskCreationData {
+        collateral: AskCollateral::Marker {
+            address: marker.address,
+            denom: marker.denom,
+            quote_per_share: marker_ask.quote_per_share.to_owned(),
+            removed_permissions: marker
+                .permissions
+                .into_iter()
+                .filter(|perm| perm.address != env.contract.address)
+                .collect(),
+        },
+        messages,
     }
     .to_ok()
 }

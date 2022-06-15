@@ -1,6 +1,7 @@
 use crate::storage::contract_info::{get_contract_info, set_contract_info, ContractInfo};
 use crate::types::error::ContractError;
 use crate::types::msg::InstantiateMsg;
+use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::{attr, DepsMut, Env, MessageInfo, Response};
 use provwasm_std::{bind_name, NameBinding, ProvenanceMsg, ProvenanceQuery};
 
@@ -33,15 +34,14 @@ pub fn instantiate_contract(
     )?;
 
     // build response
-    Ok(Response::new()
-        .add_messages(vec![bind_name_msg])
-        .add_attributes(vec![
-            attr(
-                "contract_info",
-                format!("{:?}", get_contract_info(deps.storage)?),
-            ),
-            attr("action", "init"),
-        ]))
+    Response::new()
+        .add_message(bind_name_msg)
+        .add_attribute(
+            "contract_info",
+            format!("{:?}", get_contract_info(deps.storage)?),
+        )
+        .add_attribute("action", "init")
+        .to_ok()
 }
 
 #[cfg(test)]
