@@ -57,7 +57,7 @@ mod tests {
     use crate::types::bid::Bid;
     use crate::types::msg::ExecuteMsg;
     use cosmwasm_std::testing::{mock_env, mock_info};
-    use cosmwasm_std::{attr, coins, Addr, BankMsg, CosmosMsg, Timestamp};
+    use cosmwasm_std::{attr, coins, Addr, BankMsg, CosmosMsg};
     use provwasm_mocks::mock_dependencies;
 
     #[test]

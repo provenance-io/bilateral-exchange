@@ -14,29 +14,30 @@ pub fn marker_has_admin(marker: &Marker, expected_admin: &Addr) -> bool {
 }
 
 pub fn get_single_marker_coin_holding(marker: &Marker) -> Result<Coin, ContractError> {
-    if marker.coins.len() != 1 {
+    if marker
+        .coins
+        .iter()
+        .filter(|coin| coin.denom == marker.denom)
+        .count()
+        != 1
+    {
         return ContractError::InvalidMarker {
             message: format!(
-                "expected marker [{}] to have only a single coin entry, but had: {:?}",
+                "expected marker [{}] to have a single coin entry for denom [{}], but it did not.  Holdings: {:?}",
                 marker.address.as_str(),
+                marker.denom,
                 marker.coins,
             ),
         }
-        .to_err();
+            .to_err();
     }
-    let marker_coin = marker.coins.first().unwrap();
-    if marker_coin.denom != marker.denom {
-        return ContractError::InvalidMarker {
-            message: format!(
-                "expected marker [{}] to hold a single coin of type [{}] but it had coin: [{:?}]",
-                marker.address.as_str(),
-                marker.denom,
-                marker_coin,
-            ),
-        }
-        .to_err();
-    }
-    marker_coin.to_owned().to_ok()
+    marker
+        .coins
+        .iter()
+        .find(|coin| coin.denom == marker.denom)
+        .unwrap()
+        .to_owned()
+        .to_ok()
 }
 
 pub fn get_marker_quote(
@@ -57,7 +58,6 @@ mod tests {
     use super::*;
     use crate::test::mock_marker::MockMarker;
     use cosmwasm_std::coins;
-    use provwasm_std::MarkerType;
 
     #[test]
     fn test_get_marker_quote() {

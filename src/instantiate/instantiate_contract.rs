@@ -2,7 +2,7 @@ use crate::storage::contract_info::{get_contract_info, set_contract_info, Contra
 use crate::types::error::ContractError;
 use crate::types::msg::InstantiateMsg;
 use crate::util::extensions::ResultExtensions;
-use cosmwasm_std::{attr, DepsMut, Env, MessageInfo, Response};
+use cosmwasm_std::{DepsMut, Env, MessageInfo, Response};
 use provwasm_std::{bind_name, NameBinding, ProvenanceMsg, ProvenanceQuery};
 
 pub fn instantiate_contract(
@@ -50,7 +50,7 @@ mod tests {
     use crate::contract::instantiate;
     use crate::storage::contract_info::{CONTRACT_TYPE, CONTRACT_VERSION};
     use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
-    use cosmwasm_std::{Addr, CosmosMsg};
+    use cosmwasm_std::{attr, Addr, CosmosMsg};
     use provwasm_mocks::mock_dependencies;
     use provwasm_std::{NameMsgParams, ProvenanceMsgParams, ProvenanceRoute};
 

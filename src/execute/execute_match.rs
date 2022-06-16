@@ -5,7 +5,7 @@ use crate::types::ask_collateral::AskCollateral;
 use crate::types::bid_collateral::BidCollateral;
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
-use crate::validation::execute_match_validation::validate_execute_match;
+use crate::validation::execute_match_validation::validate_match;
 use cosmwasm_std::{BankMsg, CosmosMsg, DepsMut, Env, MessageInfo, Response};
 use provwasm_std::{grant_marker_access, revoke_marker_access, ProvenanceMsg, ProvenanceQuery};
 
@@ -46,7 +46,7 @@ pub fn execute_match(
     let ask_order = get_ask_order_by_id(deps.storage, ask_id)?;
     let bid_order = get_bid_order_by_id(deps.storage, bid_id)?;
 
-    validate_execute_match(&deps, &ask_order, &bid_order)?;
+    validate_match(&deps, &ask_order, &bid_order)?;
 
     let mut messages: Vec<CosmosMsg<ProvenanceMsg>> = vec![];
     match &ask_order.collateral {
@@ -108,14 +108,6 @@ pub fn execute_match(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::contract::execute;
-    use crate::storage::contract_info::{set_contract_info, ContractInfo};
-    use crate::types::msg::ExecuteMsg;
-    use cosmwasm_std::testing::{mock_env, mock_info};
-    use cosmwasm_std::{coin, coins, Addr, CosmosMsg, Timestamp};
-    use provwasm_mocks::mock_dependencies;
-
     // #[test]
     // fn test_is_executable() {
     //     assert!(is_executable(
