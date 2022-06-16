@@ -1,3 +1,4 @@
+use crate::storage::order_indices::OrderIndices;
 use crate::types::ask_order::AskOrder;
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
@@ -9,13 +10,22 @@ const NAMESPACE_OWNER_IDX: &str = "ask__owner";
 const NAMESPACE_TYPE_IDX: &str = "ask__type";
 
 pub struct AskOrderIndices<'a> {
-    owner_index: MultiIndex<'a, String, AskOrder>,
-    type_index: MultiIndex<'a, String, AskOrder>,
+    pub owner_index: MultiIndex<'a, String, AskOrder, String>,
+    pub type_index: MultiIndex<'a, String, AskOrder, String>,
 }
 impl<'a> IndexList<AskOrder> for AskOrderIndices<'a> {
     fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<AskOrder>> + '_> {
         let v: Vec<&dyn Index<AskOrder>> = vec![&self.owner_index, &self.type_index];
         Box::new(v.into_iter())
+    }
+}
+impl<'a> OrderIndices<'a, AskOrder> for AskOrderIndices<'a> {
+    fn owner_index(&self) -> &MultiIndex<'a, String, AskOrder, String> {
+        &self.owner_index
+    }
+
+    fn type_index(&self) -> &MultiIndex<'a, String, AskOrder, String> {
+        &self.type_index
     }
 }
 

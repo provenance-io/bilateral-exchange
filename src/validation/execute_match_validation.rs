@@ -4,7 +4,7 @@ use crate::types::bid_collateral::{BidCollateral, CoinBidCollateral, MarkerBidCo
 use crate::types::bid_order::BidOrder;
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
-use crate::util::provenance_utilities::{get_marker_quote, get_single_marker_coin_holding};
+use crate::util::provenance_utilities::{calculate_marker_quote, get_single_marker_coin_holding};
 use cosmwasm_std::{Coin, DepsMut};
 use provwasm_std::{ProvenanceQuerier, ProvenanceQuery};
 
@@ -143,7 +143,7 @@ fn get_marker_collateral_validation(
                 return validation_messages;
             }
         };
-    if let Ok(marker_coin) = get_single_marker_coin_holding(&marker) {
+    let marker_share_count = if let Ok(marker_coin) = get_single_marker_coin_holding(&marker) {
         if marker_coin.amount.u128() != ask_collateral.share_count.u128() {
             validation_messages.push(
                 format!(
@@ -154,6 +154,7 @@ fn get_marker_collateral_validation(
                 )
             );
         }
+        marker_coin.amount.u128()
     } else {
         validation_messages.push(format!(
             "{} Marker had invalid coin holdings for match: {:?}. Expected a single instance of coin [{}]",
@@ -166,17 +167,8 @@ fn get_marker_collateral_validation(
             &ask_collateral.denom,
         ));
         return validation_messages;
-    }
-    let mut ask_quote = match get_marker_quote(&marker, &ask_collateral.quote_per_share) {
-        Ok(ask_quote) => ask_quote,
-        Err(e) => {
-            validation_messages.push(format!(
-                "{} Could not determine ask quote from marker coin balances: {:?}",
-                &identifiers, e,
-            ));
-            return validation_messages;
-        }
     };
+    let mut ask_quote = calculate_marker_quote(marker_share_count, &ask_collateral.quote_per_share);
     let mut bid_quote = bid_collateral.quote.to_owned();
     // sort the base and quote vectors by the order chain: denom, amount
     let coin_sorter =

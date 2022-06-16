@@ -7,6 +7,8 @@ use crate::instantiate::instantiate_contract::instantiate_contract;
 use crate::query::query_ask::query_ask;
 use crate::query::query_bid::query_bid;
 use crate::query::query_contract_info::query_contract_info;
+use crate::query::search_asks::search_asks;
+use crate::query::search_bids::search_bids;
 use crate::types::error::ContractError;
 use crate::types::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use cosmwasm_std::{entry_point, Binary, Deps, DepsMut, Env, MessageInfo, Response};
@@ -53,5 +55,7 @@ pub fn query(
         QueryMsg::GetAsk { id } => query_ask(deps, id),
         QueryMsg::GetBid { id } => query_bid(deps, id),
         QueryMsg::GetContractInfo {} => query_contract_info(deps),
+        QueryMsg::SearchAsks { search } => search_asks(deps, search),
+        QueryMsg::SearchBids { search } => search_bids(deps, search),
     }
 }

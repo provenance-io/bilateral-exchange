@@ -1,6 +1,7 @@
 use crate::types::ask::Ask;
 use crate::types::bid::Bid;
 use crate::types::request_descriptor::RequestDescriptor;
+use crate::types::search::Search;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -39,4 +40,6 @@ pub enum QueryMsg {
     GetAsk { id: String },
     GetBid { id: String },
     GetContractInfo {},
+    SearchAsks { search: Search },
+    SearchBids { search: Search },
 }

@@ -1,3 +1,4 @@
+use crate::storage::order_indices::OrderIndices;
 use crate::types::bid_order::BidOrder;
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
@@ -9,13 +10,22 @@ const NAMESPACE_OWNER_IDX: &str = "bid__owner";
 const NAMESPACE_TYPE_IDX: &str = "bid__type";
 
 pub struct BidOrderIndices<'a> {
-    owner_index: MultiIndex<'a, String, BidOrder>,
-    type_index: MultiIndex<'a, String, BidOrder>,
+    pub owner_index: MultiIndex<'a, String, BidOrder, String>,
+    pub type_index: MultiIndex<'a, String, BidOrder, String>,
 }
 impl<'a> IndexList<BidOrder> for BidOrderIndices<'a> {
     fn get_indexes(&'_ self) -> Box<dyn Iterator<Item = &'_ dyn Index<BidOrder>> + '_> {
         let v: Vec<&dyn Index<BidOrder>> = vec![&self.owner_index, &self.type_index];
         Box::new(v.into_iter())
+    }
+}
+impl<'a> OrderIndices<'a, BidOrder> for BidOrderIndices<'a> {
+    fn owner_index(&self) -> &MultiIndex<'a, String, BidOrder, String> {
+        &self.owner_index
+    }
+
+    fn type_index(&self) -> &MultiIndex<'a, String, BidOrder, String> {
+        &self.type_index
     }
 }
 

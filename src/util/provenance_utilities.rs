@@ -40,17 +40,23 @@ pub fn get_single_marker_coin_holding(marker: &Marker) -> Result<Coin, ContractE
         .to_ok()
 }
 
-pub fn get_marker_quote(
+pub fn derive_marker_quote(
     marker: &Marker,
     quote_per_share: &[Coin],
 ) -> Result<Vec<Coin>, ContractError> {
-    let marker_share_count = get_single_marker_coin_holding(&marker)?.amount.u128();
+    calculate_marker_quote(
+        get_single_marker_coin_holding(&marker)?.amount.u128(),
+        quote_per_share,
+    )
+    .to_ok()
+}
+
+pub fn calculate_marker_quote(marker_share_count: u128, quote_per_share: &[Coin]) -> Vec<Coin> {
     quote_per_share
         .iter()
         .map(|c| coin(c.amount.u128() * marker_share_count, &c.denom))
         .to_owned()
         .collect::<Vec<Coin>>()
-        .to_ok()
 }
 
 #[cfg(test)]
@@ -60,14 +66,14 @@ mod tests {
     use cosmwasm_std::coins;
 
     #[test]
-    fn test_get_marker_quote() {
+    fn test_derive_marker_quote() {
         let marker = MockMarker {
             denom: "testdenom".to_string(),
             coins: coins(100, "testdenom"),
             ..MockMarker::default()
         }
         .to_marker();
-        let quote = get_marker_quote(&marker, &coins(1, "nhash"))
+        let quote = derive_marker_quote(&marker, &coins(1, "nhash"))
             .expect("expected the conversion to succeed");
         assert_eq!(
             coins(100, "nhash"),
