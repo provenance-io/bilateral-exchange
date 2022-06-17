@@ -3,8 +3,8 @@ use crate::types::constants::{
     DEFAULT_SEARCH_ORDER, DEFAULT_SEARCH_PAGE_NUMBER, DEFAULT_SEARCH_PAGE_SIZE,
     MAX_SEARCH_PAGE_SIZE, MIN_SEARCH_PAGE_NUMBER, MIN_SEARCH_PAGE_SIZE,
 };
-use crate::types::search::{Search, SearchResult, SearchType};
-use cosmwasm_std::Storage;
+use crate::types::search::{Search, SearchResult, SearchType, Searchable};
+use cosmwasm_std::{Storage, Uint128};
 use cw_storage_plus::{IndexList, IndexedMap};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -12,14 +12,14 @@ use serde::Serialize;
 pub struct OrderSearchRepository<'a, T, O>
 where
     T: IndexList<O> + OrderIndices<'a, O>,
-    O: Clone + Serialize + DeserializeOwned,
+    O: Clone + Serialize + DeserializeOwned + Searchable,
 {
     index_map: IndexedMap<'a, &'a [u8], O, T>,
 }
 impl<'a, T, O> OrderSearchRepository<'a, T, O>
 where
     T: IndexList<O> + OrderIndices<'a, O>,
-    O: Clone + Serialize + DeserializeOwned,
+    O: Clone + Serialize + DeserializeOwned + Searchable,
 {
     pub fn new(index_map: IndexedMap<'a, &'a [u8], O, T>) -> Self {
         Self { index_map }
@@ -47,15 +47,16 @@ where
         total_pages = (total_pages / 100 + if total_pages % 100 != 0 { 1 } else { 0 }).max(1);
         SearchResult {
             results: response.query_results,
-            page_number,
-            page_size,
-            total_pages,
+            page_number: Uint128::new(page_number as u128),
+            page_size: Uint128::new(page_size as u128),
+            total_pages: Uint128::new(total_pages as u128),
         }
     }
 
     fn get_page_size(&self, search: &Search) -> usize {
         search
             .page_size
+            .map(|u| u.u128() as usize)
             .unwrap_or(DEFAULT_SEARCH_PAGE_SIZE)
             // Limit page size to ensure overloads do not occur
             .min(MAX_SEARCH_PAGE_SIZE)
@@ -66,6 +67,7 @@ where
     fn get_page_number(&self, search: &Search) -> usize {
         search
             .page_number
+            .map(|u| u.u128() as usize)
             .unwrap_or(DEFAULT_SEARCH_PAGE_NUMBER)
             // Never allow page sizes < 1, which would cause division panics
             .max(MIN_SEARCH_PAGE_NUMBER)
@@ -169,6 +171,7 @@ mod tests {
         MIN_SEARCH_PAGE_NUMBER, MIN_SEARCH_PAGE_SIZE,
     };
     use crate::types::search::Search;
+    use cosmwasm_std::Uint128;
 
     #[test]
     fn test_get_page_size() {
@@ -179,19 +182,19 @@ mod tests {
             repository.get_page_size(&search),
             "expected the default page size to be used when no page size is provided to the search",
         );
-        search.page_size = Some(MAX_SEARCH_PAGE_SIZE + 1);
+        search.page_size = Some(Uint128::new(MAX_SEARCH_PAGE_SIZE as u128 + 1));
         assert_eq!(
             MAX_SEARCH_PAGE_SIZE,
             repository.get_page_size(&search),
             "expected the max page size to always be favored if a value greater than it is used",
         );
-        search.page_size = Some(MIN_SEARCH_PAGE_SIZE - 1);
+        search.page_size = Some(Uint128::new(MIN_SEARCH_PAGE_SIZE as u128 - 1));
         assert_eq!(
             MIN_SEARCH_PAGE_SIZE,
             repository.get_page_size(&search),
             "expected the min page size to always be favored if a value less than it is used",
         );
-        search.page_size = Some(MIN_SEARCH_PAGE_SIZE + 1);
+        search.page_size = Some(Uint128::new(MIN_SEARCH_PAGE_SIZE as u128 + 1));
         assert_eq!(
             MIN_SEARCH_PAGE_SIZE + 1,
             repository.get_page_size(&search),
@@ -208,13 +211,13 @@ mod tests {
             repository.get_page_number(&search),
             "expected the default page number to be used when no page number is provided to the search",
         );
-        search.page_number = Some(MIN_SEARCH_PAGE_NUMBER - 1);
+        search.page_number = Some(Uint128::new(MIN_SEARCH_PAGE_NUMBER as u128 - 1));
         assert_eq!(
             MIN_SEARCH_PAGE_NUMBER,
             repository.get_page_number(&search),
             "expected the min page number to always be favored if a value less than it is used",
         );
-        search.page_number = Some(MIN_SEARCH_PAGE_NUMBER + 10);
+        search.page_number = Some(Uint128::new(MIN_SEARCH_PAGE_NUMBER as u128 + 10));
         assert_eq!(
             MIN_SEARCH_PAGE_NUMBER + 10,
             repository.get_page_number(&search),

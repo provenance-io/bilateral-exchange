@@ -5,6 +5,7 @@ use crate::types::constants::{
 };
 use crate::types::error::ContractError;
 use crate::types::request_descriptor::RequestDescriptor;
+use crate::types::search::Searchable;
 use crate::util::extensions::ResultExtensions;
 use crate::validation::bid_order_validation::validate_bid_order;
 use cosmwasm_std::Addr;
@@ -64,3 +65,4 @@ impl BidOrder {
         }
     }
 }
+impl Searchable for BidOrder {}

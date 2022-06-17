@@ -36,16 +36,18 @@ mod tests {
             "no results should be returned when no values exist",
         );
         assert_eq!(
-            DEFAULT_SEARCH_PAGE_SIZE, page.page_size,
+            DEFAULT_SEARCH_PAGE_SIZE,
+            page.page_size.u128() as usize,
             "the default page size should be used when no value is provided",
         );
         assert_eq!(
-            DEFAULT_SEARCH_PAGE_NUMBER, page.page_number,
+            DEFAULT_SEARCH_PAGE_NUMBER,
+            page.page_number.u128() as usize,
             "the default page number should be used when no value is provided",
         );
         assert_eq!(
             1,
-            page.total_pages,
+            page.total_pages.u128(),
             "the total number of pages should be 0, indicating that there is one page of... nothing",
         );
     }
@@ -91,15 +93,18 @@ mod tests {
             "there are 21 items in storage, so all results should be returned in the 0-10 range",
         );
         assert_eq!(
-            1, first_page.page_number,
+            1,
+            first_page.page_number.u128(),
             "with no page number input, the fist page should be returned"
         );
         assert_eq!(
-            10, first_page.page_size,
+            10,
+            first_page.page_size.u128(),
             "the provided page size should always be returned",
         );
         assert_eq!(
-            3, first_page.total_pages,
+            3,
+            first_page.total_pages.u128(),
             "the total page value should be equal to the total number of items divided by results",
         );
         let second_search = Search::all(Some(10), Some(2));
@@ -110,11 +115,13 @@ mod tests {
             "there are 21 items in storage, so all results should be returned in the 10-20 range",
         );
         assert_eq!(
-            2, second_page.page_number,
+            2,
+            second_page.page_number.u128(),
             "the requested page number should be returned in the result",
         );
         assert_eq!(
-            3, second_page.total_pages,
+            3,
+            second_page.total_pages.u128(),
             "the total page number should not change unless new values are added",
         );
         let second_page_ids = second_page
@@ -136,11 +143,13 @@ mod tests {
             "the final, 21st result should be returned on the third page",
         );
         assert_eq!(
-            3, third_page.page_number,
+            3,
+            third_page.page_number.u128(),
             "the requested page number should be returned in the result",
         );
         assert_eq!(
-            3, third_page.total_pages,
+            3,
+            third_page.total_pages.u128(),
             "the total page number should be unchanging",
         );
         let final_id = third_page.results.first().unwrap().id.to_owned();
@@ -158,11 +167,12 @@ mod tests {
             "no results should be contained because there are not enough items for a fourth page",
         );
         assert_eq!(
-            4, fourth_page.page_number,
+            4,
+            fourth_page.page_number.u128(),
             "the requested page number should be returned in the result",
         );
         assert_eq!(
-            3, fourth_page.total_pages,
+            3, fourth_page.total_pages.u128(),
             "the result should indicate that there are only three pages, revealing how ridiculous the search was in the first place",
         );
         let max_page = search(deps.as_ref(), Search::all(Some(25), None));
@@ -172,16 +182,18 @@ mod tests {
             "all items should be returned in a search that requests more items than are available",
         );
         assert_eq!(
-            25, max_page.page_size,
+            25,
+            max_page.page_size.u128(),
             "the provided page size should be returned",
         );
         assert_eq!(
-            1, max_page.page_number,
+            1,
+            max_page.page_number.u128(),
             "the default first page number should be used",
         );
         assert_eq!(
             1,
-            max_page.total_pages,
+            max_page.total_pages.u128(),
             "due to there being less results than will fit on a single page, there should be one page",
         );
     }
@@ -217,15 +229,18 @@ mod tests {
             "no results should be yielded for a marker search when all values are of type coin",
         );
         assert_eq!(
-            DEFAULT_SEARCH_PAGE_SIZE, marker_page.page_size,
+            DEFAULT_SEARCH_PAGE_SIZE,
+            marker_page.page_size.u128() as usize,
             "the provided page size should be returned",
         );
         assert_eq!(
-            DEFAULT_SEARCH_PAGE_NUMBER, marker_page.page_number,
+            DEFAULT_SEARCH_PAGE_NUMBER,
+            marker_page.page_number.u128() as usize,
             "the default first page number should be used",
         );
         assert_eq!(
-            1, marker_page.total_pages,
+            1,
+            marker_page.total_pages.u128(),
             "due to there being no results, a single page should be returned",
         );
     }
@@ -319,15 +334,18 @@ mod tests {
             "expected no results to be returned because the id requested does not exist",
         );
         assert_eq!(
-            1, id_page.page_number,
+            1,
+            id_page.page_number.u128(),
             "the first page should always be returned when no page is requested",
         );
         assert_eq!(
-            DEFAULT_SEARCH_PAGE_SIZE, id_page.page_size,
+            DEFAULT_SEARCH_PAGE_SIZE,
+            id_page.page_size.u128() as usize,
             "the default page size should be used when no value is provided",
         );
         assert_eq!(
-            1, id_page.total_pages,
+            1,
+            id_page.total_pages.u128(),
             "one total page should be returned when there are no results",
         );
     }
@@ -378,7 +396,7 @@ mod tests {
         );
         let ask_1_page = search(
             deps.as_ref(),
-            Search::id("ask_id_1", Some(MAX_SEARCH_PAGE_SIZE), Some(150)),
+            Search::id("ask_id_1", Some(MAX_SEARCH_PAGE_SIZE as u128), Some(150)),
         );
         assert_eq!(
             1,
@@ -391,16 +409,18 @@ mod tests {
             "the result should have the correct id",
         );
         assert_eq!(
-            MAX_SEARCH_PAGE_SIZE, ask_1_page.page_size,
+            MAX_SEARCH_PAGE_SIZE,
+            ask_1_page.page_size.u128() as usize,
             "page size should be returned as defined",
         );
         assert_eq!(
-            150, ask_1_page.page_number,
+            150,
+            ask_1_page.page_number.u128(),
             "page number should be returned as defined",
         );
         assert_eq!(
             1,
-            ask_1_page.total_pages,
+            ask_1_page.total_pages.u128(),
             "total pages should show 1, indicating that there will always be 1 page for id searches",
         );
     }
