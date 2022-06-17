@@ -24,6 +24,12 @@ pub enum ContractError {
     #[error("Invalid marker: {message}")]
     InvalidMarker { message: String },
 
+    #[error("Scope at address [{scope_address}] has invalid owner: {explanation}")]
+    InvalidScopeOwner {
+        scope_address: String,
+        explanation: String,
+    },
+
     #[error("Missing field: {field:?}")]
     MissingField { field: String },
 

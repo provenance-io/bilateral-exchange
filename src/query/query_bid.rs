@@ -41,7 +41,7 @@ mod tests {
         let bid_order = BidOrder::new_unchecked(
             "bid_id",
             Addr::unchecked("bidder"),
-            BidCollateral::coin(&coins(100, "base_1"), &coins(100, "quote_1")),
+            BidCollateral::coin_trade(&coins(100, "base_1"), &coins(100, "quote_1")),
             Some(RequestDescriptor {
                 description: Some("description words".to_string()),
                 effective_time: Some(Timestamp::default()),

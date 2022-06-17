@@ -1,10 +1,12 @@
 use crate::storage::bid_order_storage::{get_bid_order_by_id, insert_bid_order};
-use crate::types::bid::{Bid, CoinBid, MarkerBid};
+use crate::types::ask::ScopeTradeAsk;
+use crate::types::bid::{Bid, CoinTradeBid, MarkerShareSaleBid, MarkerTradeBid, ScopeTradeBid};
 use crate::types::bid_collateral::BidCollateral;
 use crate::types::bid_order::BidOrder;
 use crate::types::error::ContractError;
 use crate::types::request_descriptor::RequestDescriptor;
 use crate::util::extensions::ResultExtensions;
+use crate::util::provenance_utilities::get_single_marker_coin_holding;
 use cosmwasm_std::{to_binary, DepsMut, MessageInfo, Response};
 use provwasm_std::{ProvenanceMsg, ProvenanceQuerier, ProvenanceQuery};
 
@@ -23,8 +25,14 @@ pub fn create_bid(
         .to_err();
     }
     let collateral = match &bid {
-        Bid::Coin(coin_bid) => create_coin_bid_collateral(&info, &coin_bid),
-        Bid::Marker(marker_bid) => create_marker_bid_collateral(&deps, &info, &marker_bid),
+        Bid::CoinTrade(coin_trade) => create_coin_trade_collateral(&info, &coin_trade),
+        Bid::MarkerTrade(marker_trade) => {
+            create_marker_trade_collateral(&deps, &info, &marker_trade)
+        }
+        Bid::MarkerShareSale(marker_share_sale) => {
+            create_marker_share_sale_collateral(&deps, &info, &marker_share_sale)
+        }
+        Bid::ScopeTrade(scope_trade) => create_scope_trade_collateral(&info, &scope_trade),
     }?;
     let bid_order = BidOrder::new(bid.get_id(), info.sender, collateral, descriptor)?;
     insert_bid_order(deps.storage, &bid_order)?;
@@ -34,17 +42,17 @@ pub fn create_bid(
         .to_ok()
 }
 
-fn create_coin_bid_collateral(
+fn create_coin_trade_collateral(
     info: &MessageInfo,
-    coin_bid: &CoinBid,
+    coin_trade: &CoinTradeBid,
 ) -> Result<BidCollateral, ContractError> {
-    if coin_bid.id.is_empty() {
+    if coin_trade.id.is_empty() {
         return ContractError::MissingField {
             field: "id".to_string(),
         }
         .to_err();
     }
-    if coin_bid.base.is_empty() {
+    if coin_trade.base.is_empty() {
         return ContractError::MissingField {
             field: "base".to_string(),
         }
@@ -52,25 +60,25 @@ fn create_coin_bid_collateral(
     }
     if info.funds.is_empty() {
         return ContractError::InvalidFundsProvided {
-            message: "coin bid requests should include funds".to_string(),
+            message: "coin trade bid requests should include funds".to_string(),
         }
         .to_err();
     }
-    BidCollateral::coin(&coin_bid.base, &info.funds).to_ok()
+    BidCollateral::coin_trade(&coin_trade.base, &info.funds).to_ok()
 }
 
-fn create_marker_bid_collateral(
+fn create_marker_trade_collateral(
     deps: &DepsMut<ProvenanceQuery>,
     info: &MessageInfo,
-    marker_bid: &MarkerBid,
+    marker_trade: &MarkerTradeBid,
 ) -> Result<BidCollateral, ContractError> {
-    if marker_bid.id.is_empty() {
+    if marker_trade.id.is_empty() {
         return ContractError::MissingField {
             field: "id".to_string(),
         }
         .to_err();
     }
-    if marker_bid.denom.is_empty() {
+    if marker_trade.denom.is_empty() {
         return ContractError::MissingField {
             field: "denom".to_string(),
         }
@@ -78,13 +86,94 @@ fn create_marker_bid_collateral(
     }
     if info.funds.is_empty() {
         return ContractError::InvalidFundsProvided {
-            message: "funds must be provided during a marker bid to establish a quote".to_string(),
+            message: "funds must be provided during a marker trade bid to establish a quote"
+                .to_string(),
         }
         .to_err();
     }
     // This grants us access to the marker address, as well as ensuring that the marker is real
-    let marker = ProvenanceQuerier::new(&deps.querier).get_marker_by_denom(&marker_bid.denom)?;
-    BidCollateral::marker(marker.address, &marker_bid.denom, &info.funds).to_ok()
+    let marker = ProvenanceQuerier::new(&deps.querier).get_marker_by_denom(&marker_trade.denom)?;
+    BidCollateral::marker_trade(marker.address, &marker_trade.denom, &info.funds).to_ok()
+}
+
+fn create_marker_share_sale_collateral(
+    deps: &DepsMut<ProvenanceQuery>,
+    info: &MessageInfo,
+    marker_share_sale: &MarkerShareSaleBid,
+) -> Result<BidCollateral, ContractError> {
+    if marker_share_sale.id.is_empty() {
+        return ContractError::MissingField {
+            field: "id".to_string(),
+        }
+        .to_err();
+    }
+    if marker_share_sale.denom.is_empty() {
+        return ContractError::MissingField {
+            field: "denom".to_string(),
+        }
+        .to_err();
+    }
+    if marker_share_sale.share_count.is_zero() {
+        return ContractError::ValidationError {
+            messages: vec!["share count must be at least one for a marker share sale".to_string()],
+        }
+        .to_err();
+    }
+    if info.funds.is_empty() {
+        return ContractError::InvalidFundsProvided {
+            message: "funds must be provided during a marker share trade bid to establish a quote"
+                .to_string(),
+        }
+        .to_err();
+    }
+    let marker =
+        ProvenanceQuerier::new(&deps.querier).get_marker_by_denom(&marker_share_sale.denom)?;
+    let marker_shares_available = get_single_marker_coin_holding(&marker)?.amount.u128();
+    if marker_share_sale.share_count.u128() > marker_shares_available {
+        return ContractError::ValidationError {
+            messages: vec![
+                format!(
+                    "share count [{}] must be less than or equal to remaining [{}] shares available [{}]",
+                    marker_share_sale.share_count.u128(),
+                    marker_share_sale.denom,
+                    marker_shares_available,
+                )
+            ]
+        }.to_err();
+    }
+    BidCollateral::marker_share_sale(
+        marker.address,
+        &marker_share_sale.denom,
+        marker_shares_available,
+        &info.funds,
+    )
+    .to_ok()
+}
+
+fn create_scope_trade_collateral(
+    info: &MessageInfo,
+    scope_trade: &ScopeTradeBid,
+) -> Result<BidCollateral, ContractError> {
+    if scope_trade.id.is_empty() {
+        return ContractError::MissingField {
+            field: "id".to_string(),
+        }
+        .to_err();
+    }
+    if scope_trade.scope_address.is_empty() {
+        return ContractError::MissingField {
+            field: "scope_address".to_string(),
+        }
+        .to_err();
+    }
+    if info.funds.is_empty() {
+        return ContractError::InvalidFundsProvided {
+            message: "funds must be provided during a scope trade bid to establish a quote"
+                .to_string(),
+        }
+        .to_err();
+    }
+    BidCollateral::scope_trade(&scope_trade.scope_address, &info.funds).to_ok()
 }
 
 #[cfg(test)]
@@ -92,7 +181,7 @@ mod tests {
     use super::*;
     use crate::contract::execute;
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
-    use crate::types::constants::BID_TYPE_COIN;
+    use crate::types::constants::BID_TYPE_COIN_TRADE;
     use crate::types::msg::ExecuteMsg;
     use cosmwasm_std::testing::{mock_env, mock_info};
     use cosmwasm_std::{attr, coins, Addr};
@@ -141,7 +230,7 @@ mod tests {
 
         // verify bid order stored
         if let ExecuteMsg::CreateBid {
-            bid: Bid::Coin(CoinBid { id, base }),
+            bid: Bid::CoinTrade(CoinTradeBid { id, base }),
             descriptor: None,
         } = create_bid_msg
         {
@@ -151,9 +240,9 @@ mod tests {
                         stored_order,
                         BidOrder {
                             id,
-                            bid_type: BID_TYPE_COIN.to_string(),
+                            bid_type: BID_TYPE_COIN_TRADE.to_string(),
                             owner: bidder_info.sender,
-                            collateral: BidCollateral::coin(&base, &bidder_info.funds),
+                            collateral: BidCollateral::coin_trade(&base, &bidder_info.funds),
                             descriptor: None,
                         }
                     )

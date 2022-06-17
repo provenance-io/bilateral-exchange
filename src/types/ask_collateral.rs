@@ -6,22 +6,24 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AskCollateral {
-    Coin(CoinAskCollateral),
-    Marker(MarkerAskCollateral),
+    CoinTrade(CoinTradeAskCollateral),
+    MarkerTrade(MarkerTradeAskCollateral),
+    MarkerShareSale(MarkerShareSaleAskCollateral),
+    ScopeTrade(ScopeTradeAskCollateral),
 }
 impl AskCollateral {
-    pub fn coin(base: &[Coin], quote: &[Coin]) -> Self {
-        Self::Coin(CoinAskCollateral::new(base, quote))
+    pub fn coin_trade(base: &[Coin], quote: &[Coin]) -> Self {
+        Self::CoinTrade(CoinTradeAskCollateral::new(base, quote))
     }
 
-    pub fn marker<S: Into<String>>(
+    pub fn marker_trade<S: Into<String>>(
         address: Addr,
         denom: S,
         share_count: u128,
         quote_per_share: &[Coin],
         removed_permissions: &[AccessGrant],
     ) -> Self {
-        Self::Marker(MarkerAskCollateral::new(
+        Self::MarkerTrade(MarkerTradeAskCollateral::new(
             address,
             denom,
             share_count,
@@ -29,15 +31,35 @@ impl AskCollateral {
             removed_permissions,
         ))
     }
+
+    pub fn marker_share_sale<S: Into<String>>(
+        address: Addr,
+        denom: S,
+        remaining_shares: u128,
+        quote_per_share: &[Coin],
+        removed_permissions: &[AccessGrant],
+    ) -> Self {
+        Self::MarkerShareSale(MarkerShareSaleAskCollateral::new(
+            address,
+            denom,
+            remaining_shares,
+            quote_per_share,
+            removed_permissions,
+        ))
+    }
+
+    pub fn scope_trade<S: Into<String>>(scope_address: S, quote: &[Coin]) -> Self {
+        Self::ScopeTrade(ScopeTradeAskCollateral::new(scope_address, quote))
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub struct CoinAskCollateral {
+pub struct CoinTradeAskCollateral {
     pub base: Vec<Coin>,
     pub quote: Vec<Coin>,
 }
-impl CoinAskCollateral {
+impl CoinTradeAskCollateral {
     fn new(base: &[Coin], quote: &[Coin]) -> Self {
         Self {
             base: base.to_owned(),
@@ -48,14 +70,14 @@ impl CoinAskCollateral {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub struct MarkerAskCollateral {
+pub struct MarkerTradeAskCollateral {
     pub address: Addr,
     pub denom: String,
     pub share_count: Uint128,
     pub quote_per_share: Vec<Coin>,
     pub removed_permissions: Vec<AccessGrant>,
 }
-impl MarkerAskCollateral {
+impl MarkerTradeAskCollateral {
     fn new<S: Into<String>>(
         address: Addr,
         denom: S,
@@ -69,6 +91,48 @@ impl MarkerAskCollateral {
             share_count: Uint128::new(share_count),
             quote_per_share: quote_per_share.to_owned(),
             removed_permissions: removed_permissions.to_owned(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct MarkerShareSaleAskCollateral {
+    pub address: Addr,
+    pub denom: String,
+    pub remaining_shares: Uint128,
+    pub quote_per_share: Vec<Coin>,
+    pub removed_permissions: Vec<AccessGrant>,
+}
+impl MarkerShareSaleAskCollateral {
+    fn new<S: Into<String>>(
+        address: Addr,
+        denom: S,
+        remaining_shares: u128,
+        quote_per_share: &[Coin],
+        removed_permissions: &[AccessGrant],
+    ) -> Self {
+        Self {
+            address,
+            denom: denom.into(),
+            remaining_shares: Uint128::new(remaining_shares),
+            quote_per_share: quote_per_share.to_owned(),
+            removed_permissions: removed_permissions.to_owned(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct ScopeTradeAskCollateral {
+    pub scope_address: String,
+    pub quote: Vec<Coin>,
+}
+impl ScopeTradeAskCollateral {
+    fn new<S: Into<String>>(scope_address: S, quote: &[Coin]) -> Self {
+        Self {
+            scope_address: scope_address.into(),
+            quote: quote.to_owned(),
         }
     }
 }

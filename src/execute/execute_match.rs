@@ -51,7 +51,7 @@ pub fn execute_match(
     let mut messages: Vec<CosmosMsg<ProvenanceMsg>> = vec![];
     match &ask_order.collateral {
         // Send quote to asker when a coin match is made
-        AskCollateral::Coin(collateral) => messages.push(CosmosMsg::Bank(BankMsg::Send {
+        AskCollateral::CoinTrade(collateral) => messages.push(CosmosMsg::Bank(BankMsg::Send {
             to_address: ask_order.owner.to_string(),
             amount: collateral.quote.to_owned(),
         })),
@@ -59,7 +59,7 @@ pub fn execute_match(
         // the asker once had.  The validation code has already ensured that the asker was an admin
         // of the marker, so the bidder at very least has the permission on the marker to grant
         // themselves any remaining permissions they desire.
-        AskCollateral::Marker(collateral) => {
+        AskCollateral::MarkerTrade(collateral) => {
             if let Some(asker_permissions) = collateral
                 .removed_permissions
                 .iter()
@@ -77,11 +77,11 @@ pub fn execute_match(
     };
     match &bid_order.collateral {
         // Send base to bidder when a coin match is made
-        BidCollateral::Coin(collateral) => messages.push(CosmosMsg::Bank(BankMsg::Send {
+        BidCollateral::CoinTrade(collateral) => messages.push(CosmosMsg::Bank(BankMsg::Send {
             to_address: bid_order.owner.to_string(),
             amount: collateral.base.to_owned(),
         })),
-        BidCollateral::Marker(collateral) => {
+        BidCollateral::MarkerTrade(collateral) => {
             // Send the entirety of the quote to the asker. They have just effectively sold their
             // marker to the bidder.
             messages.push(CosmosMsg::Bank(BankMsg::Send {

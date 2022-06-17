@@ -35,13 +35,13 @@ pub fn cancel_ask(
     }
     let mut messages: Vec<CosmosMsg<ProvenanceMsg>> = vec![];
     match &ask_order.collateral {
-        AskCollateral::Coin(collateral) => {
+        AskCollateral::CoinTrade(collateral) => {
             messages.push(CosmosMsg::Bank(BankMsg::Send {
                 to_address: ask_order.owner.to_string(),
                 amount: collateral.base.to_owned(),
             }));
         }
-        AskCollateral::Marker(collateral) => {
+        AskCollateral::MarkerTrade(collateral) => {
             // Restore all permissions that the marker had before it was transferred to the
             // contract.
             for permission in &collateral.removed_permissions {
@@ -98,7 +98,7 @@ mod tests {
         let asker_info = mock_info("asker", &coins(200, "base_1"));
 
         let create_ask_msg = ExecuteMsg::CreateAsk {
-            ask: Ask::new_coin("ask_id", &coins(100, "quote_1")),
+            ask: Ask::new_coin_trade("ask_id", &coins(100, "quote_1")),
             descriptor: None,
         };
 
@@ -212,7 +212,7 @@ mod tests {
             &AskOrder::new_unchecked(
                 "ask_id",
                 Addr::unchecked(""),
-                AskCollateral::coin(&coins(200, "base_1"), &coins(100, "quote_1")),
+                AskCollateral::coin_trade(&coins(200, "base_1"), &coins(100, "quote_1")),
                 None,
             ),
         ) {

@@ -1,31 +1,51 @@
-use cosmwasm_std::{Addr, Coin};
+use cosmwasm_std::{Addr, Coin, Uint128};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum BidCollateral {
-    Coin(CoinBidCollateral),
-    Marker(MarkerBidCollateral),
+    CoinTrade(CoinTradeBidCollateral),
+    MarkerTrade(MarkerTradeBidCollateral),
+    MarkerShareSale(MarkerShareSaleBidCollateral),
+    ScopeTrade(ScopeTradeBidCollateral),
 }
 impl BidCollateral {
-    pub fn coin(base: &[Coin], quote: &[Coin]) -> Self {
-        Self::Coin(CoinBidCollateral::new(base, quote))
+    pub fn coin_trade(base: &[Coin], quote: &[Coin]) -> Self {
+        Self::CoinTrade(CoinTradeBidCollateral::new(base, quote))
     }
 
-    pub fn marker<S: Into<String>>(address: Addr, denom: S, quote: &[Coin]) -> Self {
-        Self::Marker(MarkerBidCollateral::new(address, denom, quote))
+    pub fn marker_trade<S: Into<String>>(address: Addr, denom: S, quote: &[Coin]) -> Self {
+        Self::MarkerTrade(MarkerTradeBidCollateral::new(address, denom, quote))
+    }
+
+    pub fn marker_share_sale<S: Into<String>>(
+        address: Addr,
+        denom: S,
+        share_count: u128,
+        quote: &[Coin],
+    ) -> Self {
+        Self::MarkerShareSale(MarkerShareSaleBidCollateral::new(
+            address,
+            denom,
+            share_count,
+            quote,
+        ))
+    }
+
+    pub fn scope_trade<S: Into<String>>(scope_address: S, quote: &[Coin]) -> Self {
+        Self::ScopeTrade(ScopeTradeBidCollateral::new(scope_address, quote))
     }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub struct CoinBidCollateral {
+pub struct CoinTradeBidCollateral {
     pub base: Vec<Coin>,
     pub quote: Vec<Coin>,
 }
-impl CoinBidCollateral {
-    fn new(base: &[Coin], quote: &[Coin]) -> Self {
+impl CoinTradeBidCollateral {
+    pub fn new(base: &[Coin], quote: &[Coin]) -> Self {
         Self {
             base: base.to_owned(),
             quote: quote.to_owned(),
@@ -35,16 +55,55 @@ impl CoinBidCollateral {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub struct MarkerBidCollateral {
+pub struct MarkerTradeBidCollateral {
     pub address: Addr,
     pub denom: String,
     pub quote: Vec<Coin>,
 }
-impl MarkerBidCollateral {
-    fn new<S: Into<String>>(address: Addr, denom: S, quote: &[Coin]) -> Self {
+impl MarkerTradeBidCollateral {
+    pub fn new<S: Into<String>>(address: Addr, denom: S, quote: &[Coin]) -> Self {
         Self {
             address,
             denom: denom.into(),
+            quote: quote.to_owned(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct MarkerShareSaleBidCollateral {
+    pub address: Addr,
+    pub denom: String,
+    pub share_count: Uint128,
+    pub quote: Vec<Coin>,
+}
+impl MarkerShareSaleBidCollateral {
+    pub fn new<S: Into<String>>(
+        address: Addr,
+        denom: S,
+        share_count: u128,
+        quote: &[Coin],
+    ) -> Self {
+        Self {
+            address,
+            denom: denom.into(),
+            share_count: Uint128::new(share_count),
+            quote: quote.to_owned(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct ScopeTradeBidCollateral {
+    pub scope_address: String,
+    pub quote: Vec<Coin>,
+}
+impl ScopeTradeBidCollateral {
+    pub fn new<S: Into<String>>(scope_address: S, quote: &[Coin]) -> Self {
+        Self {
+            scope_address: scope_address.into(),
             quote: quote.to_owned(),
         }
     }

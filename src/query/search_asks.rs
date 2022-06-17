@@ -17,14 +17,41 @@ mod tests {
     use crate::storage::ask_order_storage::insert_ask_order;
     use crate::types::ask_collateral::AskCollateral;
     use crate::types::ask_order::AskOrder;
+    use crate::types::constants::{
+        ASK_TYPE_COIN_TRADE, ASK_TYPE_MARKER_TRADE, DEFAULT_SEARCH_PAGE_NUMBER,
+        DEFAULT_SEARCH_PAGE_SIZE, MAX_SEARCH_PAGE_SIZE,
+    };
     use crate::types::request_descriptor::RequestDescriptor;
     use crate::types::search::{Search, SearchResult};
-    use cosmwasm_std::{from_binary, Addr, Deps, Storage, Timestamp};
+    use cosmwasm_std::{from_binary, Addr, Deps, Timestamp};
     use provwasm_mocks::mock_dependencies;
     use provwasm_std::ProvenanceQuery;
 
     #[test]
-    fn test_search_all() {
+    fn test_search_all_no_values() {
+        let deps = mock_dependencies(&[]);
+        let page = search(deps.as_ref(), Search::all(None, None));
+        assert!(
+            page.results.is_empty(),
+            "no results should be returned when no values exist",
+        );
+        assert_eq!(
+            DEFAULT_SEARCH_PAGE_SIZE, page.page_size,
+            "the default page size should be used when no value is provided",
+        );
+        assert_eq!(
+            DEFAULT_SEARCH_PAGE_NUMBER, page.page_number,
+            "the default page number should be used when no value is provided",
+        );
+        assert_eq!(
+            1,
+            page.total_pages,
+            "the total number of pages should be 0, indicating that there is one page of... nothing",
+        );
+    }
+
+    #[test]
+    fn test_search_all_with_values() {
         let mut deps = mock_dependencies(&[]);
         for index in 0..21 {
             insert_ask_order(
@@ -34,9 +61,9 @@ mod tests {
                     Addr::unchecked(format!("asker{}", index)),
                     // Swap between coin and marker for some variety
                     if index % 2 == 0 {
-                        AskCollateral::coin(&[], &[])
+                        AskCollateral::coin_trade(&[], &[])
                     } else {
-                        AskCollateral::marker(
+                        AskCollateral::marker_trade(
                             Addr::unchecked(format!("marker{}", index)),
                             format!("denom{}", index),
                             index as u128,
@@ -156,6 +183,225 @@ mod tests {
             1,
             max_page.total_pages,
             "due to there being less results than will fit on a single page, there should be one page",
+        );
+    }
+
+    #[test]
+    fn test_search_value_type_no_values() {
+        let mut deps = mock_dependencies(&[]);
+        // Insert 10 coin asks, ensuring that a marker search should yield nothing
+        for index in 0..10 {
+            insert_ask_order(
+                deps.as_mut().storage,
+                &AskOrder::new_unchecked(
+                    format!("ask_id_{}", index),
+                    Addr::unchecked(format!("asker{}", index)),
+                    AskCollateral::coin_trade(&[], &[]),
+                    Some(RequestDescriptor {
+                        description: Some(format!("Some ask {}", index)),
+                        effective_time: Some(Timestamp::default()),
+                    }),
+                ),
+            )
+            .expect(&format!(
+                "expected ask order {} to be inserted correctly",
+                index
+            ));
+        }
+        let marker_page = search(
+            deps.as_ref(),
+            Search::value_type(ASK_TYPE_MARKER_TRADE, None, None),
+        );
+        assert!(
+            marker_page.results.is_empty(),
+            "no results should be yielded for a marker search when all values are of type coin",
+        );
+        assert_eq!(
+            DEFAULT_SEARCH_PAGE_SIZE, marker_page.page_size,
+            "the provided page size should be returned",
+        );
+        assert_eq!(
+            DEFAULT_SEARCH_PAGE_NUMBER, marker_page.page_number,
+            "the default first page number should be used",
+        );
+        assert_eq!(
+            1, marker_page.total_pages,
+            "due to there being no results, a single page should be returned",
+        );
+    }
+
+    #[test]
+    fn test_search_value_type_with_values() {
+        let mut deps = mock_dependencies(&[]);
+        // Insert 25 ask orders, which should equate to 13 coin and 12 marker
+        for index in 0..25 {
+            insert_ask_order(
+                deps.as_mut().storage,
+                &AskOrder::new_unchecked(
+                    format!("ask_id_{}", index),
+                    Addr::unchecked(format!("asker{}", index)),
+                    // Swap between coin and marker for some variety
+                    if index % 2 == 0 {
+                        AskCollateral::coin_trade(&[], &[])
+                    } else {
+                        AskCollateral::marker_trade(
+                            Addr::unchecked(format!("marker{}", index)),
+                            format!("denom{}", index),
+                            index as u128,
+                            &[],
+                            &[],
+                        )
+                    },
+                    Some(RequestDescriptor {
+                        description: Some(format!("Some ask {}", index)),
+                        effective_time: Some(Timestamp::default()),
+                    }),
+                ),
+            )
+            .expect(&format!(
+                "expected ask order {} to be inserted correctly",
+                index
+            ));
+        }
+        let coin_page = search(
+            deps.as_ref(),
+            Search::value_type(ASK_TYPE_COIN_TRADE, Some(15), None),
+        );
+        assert_eq!(
+            13,
+            coin_page.results.len(),
+            "13 results of type coin should be returned",
+        );
+        assert!(
+            coin_page
+                .results
+                .iter()
+                .all(|ask| ask.ask_type == ASK_TYPE_COIN_TRADE),
+            "all returned results should be coin results",
+        );
+        let marker_page = search(
+            deps.as_ref(),
+            Search::value_type(ASK_TYPE_MARKER_TRADE, Some(15), None),
+        );
+        assert_eq!(
+            12,
+            marker_page.results.len(),
+            "12 results of type marker should be returned",
+        );
+        assert!(
+            marker_page
+                .results
+                .iter()
+                .all(|ask| ask.ask_type == ASK_TYPE_MARKER_TRADE),
+            "all returned results should be marker results",
+        );
+    }
+
+    #[test]
+    fn test_search_id_no_values() {
+        let mut deps = mock_dependencies(&[]);
+        insert_ask_order(
+            deps.as_mut().storage,
+            &AskOrder::new_unchecked(
+                "ask_id_0",
+                Addr::unchecked("asker"),
+                AskCollateral::coin_trade(&[], &[]),
+                Some(RequestDescriptor {
+                    description: Some("Some ask".to_string()),
+                    effective_time: Some(Timestamp::default()),
+                }),
+            ),
+        )
+        .expect("expected the ask order to be inserted correctly");
+        let id_page = search(deps.as_ref(), Search::id("ask_id_1", None, None));
+        assert!(
+            id_page.results.is_empty(),
+            "expected no results to be returned because the id requested does not exist",
+        );
+        assert_eq!(
+            1, id_page.page_number,
+            "the first page should always be returned when no page is requested",
+        );
+        assert_eq!(
+            DEFAULT_SEARCH_PAGE_SIZE, id_page.page_size,
+            "the default page size should be used when no value is provided",
+        );
+        assert_eq!(
+            1, id_page.total_pages,
+            "one total page should be returned when there are no results",
+        );
+    }
+
+    #[test]
+    fn test_search_id_with_values() {
+        let mut deps = mock_dependencies(&[]);
+        // Insert some asks, ensuring there are results to return
+        for index in 0..10 {
+            insert_ask_order(
+                deps.as_mut().storage,
+                &AskOrder::new_unchecked(
+                    format!("ask_id_{}", index),
+                    Addr::unchecked(format!("asker{}", index)),
+                    // Swap between coin and marker for some variety
+                    if index % 2 == 0 {
+                        AskCollateral::coin_trade(&[], &[])
+                    } else {
+                        AskCollateral::marker_trade(
+                            Addr::unchecked(format!("marker{}", index)),
+                            format!("denom{}", index),
+                            index as u128,
+                            &[],
+                            &[],
+                        )
+                    },
+                    Some(RequestDescriptor {
+                        description: Some(format!("Some ask {}", index)),
+                        effective_time: Some(Timestamp::default()),
+                    }),
+                ),
+            )
+            .expect(&format!(
+                "expected ask order {} to be inserted correctly",
+                index
+            ));
+        }
+        let ask_0_page = search(deps.as_ref(), Search::id("ask_id_0", None, None));
+        assert_eq!(
+            1,
+            ask_0_page.results.len(),
+            "a single result should be returned when the id PK matches",
+        );
+        assert_eq!(
+            "ask_id_0",
+            ask_0_page.results.first().unwrap().id,
+            "the result should have the correct id",
+        );
+        let ask_1_page = search(
+            deps.as_ref(),
+            Search::id("ask_id_1", Some(MAX_SEARCH_PAGE_SIZE), Some(150)),
+        );
+        assert_eq!(
+            1,
+            ask_1_page.results.len(),
+            "a single result should be returned when the id PK matches",
+        );
+        assert_eq!(
+            "ask_id_1",
+            ask_1_page.results.first().unwrap().id,
+            "the result should have the correct id",
+        );
+        assert_eq!(
+            MAX_SEARCH_PAGE_SIZE, ask_1_page.page_size,
+            "page size should be returned as defined",
+        );
+        assert_eq!(
+            150, ask_1_page.page_number,
+            "page number should be returned as defined",
+        );
+        assert_eq!(
+            1,
+            ask_1_page.total_pages,
+            "total pages should show 1, indicating that there will always be 1 page for id searches",
         );
     }
 

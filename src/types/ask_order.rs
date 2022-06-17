@@ -1,6 +1,7 @@
 use crate::types::ask_collateral::AskCollateral;
 use crate::types::constants::{
-    ASK_TYPE_COIN, ASK_TYPE_MARKER, BID_TYPE_COIN, BID_TYPE_MARKER, UNKNOWN_TYPE,
+    ASK_TYPE_COIN_TRADE, ASK_TYPE_MARKER_TRADE, BID_TYPE_COIN_TRADE, BID_TYPE_MARKER_TRADE,
+    UNKNOWN_TYPE,
 };
 use crate::types::error::ContractError;
 use crate::types::request_descriptor::RequestDescriptor;
@@ -40,8 +41,8 @@ impl AskOrder {
         Self {
             id: id.into(),
             ask_type: match collateral {
-                AskCollateral::Coin { .. } => ASK_TYPE_COIN.to_string(),
-                AskCollateral::Marker { .. } => ASK_TYPE_MARKER.to_string(),
+                AskCollateral::Coin { .. } => ASK_TYPE_COIN_TRADE.to_string(),
+                AskCollateral::Marker { .. } => ASK_TYPE_MARKER_TRADE.to_string(),
             },
             owner,
             collateral,
@@ -55,8 +56,8 @@ impl AskOrder {
 
     pub fn get_matching_bid_type(&self) -> &str {
         match self.ask_type.as_str() {
-            ASK_TYPE_COIN => BID_TYPE_COIN,
-            ASK_TYPE_MARKER => BID_TYPE_MARKER,
+            ASK_TYPE_COIN_TRADE => BID_TYPE_COIN_TRADE,
+            ASK_TYPE_MARKER_TRADE => BID_TYPE_MARKER_TRADE,
             _ => UNKNOWN_TYPE,
         }
     }

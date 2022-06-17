@@ -1,4 +1,6 @@
-use crate::types::constants::{ASK_TYPE_COIN, ASK_TYPE_MARKER};
+use crate::types::constants::{
+    ASK_TYPE_COIN_TRADE, ASK_TYPE_MARKER_SHARE_SALE, ASK_TYPE_MARKER_TRADE, ASK_TYPE_SCOPE_TRADE,
+};
 use cosmwasm_std::Coin;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -6,26 +8,46 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Ask {
-    Coin(CoinAsk),
-    Marker(MarkerAsk),
+    CoinTrade(CoinTradeAsk),
+    MarkerTrade(MarkerTradeAsk),
+    MarkerShareSale(MarkerShareSaleAsk),
+    ScopeTrade(ScopeTradeAsk),
 }
 impl Ask {
-    pub fn new_coin<S: Into<String>>(id: S, quote: &[Coin]) -> Self {
-        Self::Coin(CoinAsk::new(id, quote))
+    pub fn new_coin_trade<S: Into<String>>(id: S, quote: &[Coin]) -> Self {
+        Self::CoinTrade(CoinTradeAsk::new(id, quote))
     }
 
-    pub fn new_marker<S1: Into<String>, S2: Into<String>>(
+    pub fn new_marker_trade<S1: Into<String>, S2: Into<String>>(
         id: S1,
         denom: S2,
         quote_per_share: &[Coin],
     ) -> Self {
-        Self::Marker(MarkerAsk::new(id, denom, quote_per_share))
+        Self::MarkerTrade(MarkerTradeAsk::new(id, denom, quote_per_share))
+    }
+
+    pub fn new_marker_share_sale<S1: Into<String>, S2: Into<String>>(
+        id: S1,
+        denom: S2,
+        quote_per_share: &[Coin],
+    ) -> Self {
+        Self::MarkerShareSale(MarkerShareSaleAsk::new(id, denom, quote_per_share))
+    }
+
+    pub fn new_scope_trade<S1: Into<String>, S2: Into<String>>(
+        id: S1,
+        scope_address: S2,
+        quote: &[Coin],
+    ) -> Self {
+        Self::ScopeTrade(ScopeTradeAsk::new(id, scope_address, quote))
     }
 
     pub fn get_id(&self) -> &str {
         match self {
-            Self::Coin(base) => &base.id,
-            Self::Marker(base) => &base.id,
+            Self::CoinTrade(trade) => &trade.id,
+            Self::MarkerTrade(trade) => &trade.id,
+            Self::MarkerShareSale(sale) => &sale.id,
+            Self::ScopeTrade(trade) => &trade.id,
         }
     }
 
@@ -35,19 +57,21 @@ impl Ask {
 
     pub fn get_ask_type(&self) -> &str {
         match self {
-            Self::Coin(_) => ASK_TYPE_COIN,
-            Self::Marker(_) => ASK_TYPE_MARKER,
+            Self::CoinTrade(_) => ASK_TYPE_COIN_TRADE,
+            Self::MarkerTrade(_) => ASK_TYPE_MARKER_TRADE,
+            Self::MarkerShareSale(_) => ASK_TYPE_MARKER_SHARE_SALE,
+            Self::ScopeTrade(_) => ASK_TYPE_SCOPE_TRADE,
         }
     }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub struct CoinAsk {
+pub struct CoinTradeAsk {
     pub id: String,
     pub quote: Vec<Coin>,
 }
-impl CoinAsk {
+impl CoinTradeAsk {
     pub fn new<S: Into<String>>(id: S, quote: &[Coin]) -> Self {
         Self {
             id: id.into(),
@@ -58,12 +82,12 @@ impl CoinAsk {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub struct MarkerAsk {
+pub struct MarkerTradeAsk {
     pub id: String,
     pub denom: String,
     pub quote_per_share: Vec<Coin>,
 }
-impl MarkerAsk {
+impl MarkerTradeAsk {
     pub fn new<S1: Into<String>, S2: Into<String>>(
         id: S1,
         denom: S2,
@@ -73,6 +97,48 @@ impl MarkerAsk {
             id: id.into(),
             denom: denom.into(),
             quote_per_share: quote_per_share.to_owned(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct MarkerShareSaleAsk {
+    pub id: String,
+    pub denom: String,
+    pub quote_per_share: Vec<Coin>,
+}
+impl MarkerShareSaleAsk {
+    pub fn new<S1: Into<String>, S2: Into<String>>(
+        id: S1,
+        denom: S2,
+        quote_per_share: &[Coin],
+    ) -> Self {
+        Self {
+            id: id.into(),
+            denom: denom.into(),
+            quote_per_share: quote_per_share.to_owned(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub struct ScopeTradeAsk {
+    pub id: String,
+    pub scope_address: String,
+    pub quote: Vec<Coin>,
+}
+impl ScopeTradeAsk {
+    pub fn new<S1: Into<String>, S2: Into<String>>(
+        id: S1,
+        scope_address: S2,
+        quote: &[Coin],
+    ) -> Self {
+        Self {
+            id: id.into(),
+            scope_address: scope_address.into(),
+            quote: quote.to_owned(),
         }
     }
 }

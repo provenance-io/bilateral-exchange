@@ -16,7 +16,7 @@ mod tests {
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
     use crate::types::ask_collateral::AskCollateral;
     use crate::types::ask_order::AskOrder;
-    use crate::types::constants::ASK_TYPE_COIN;
+    use crate::types::constants::ASK_TYPE_COIN_TRADE;
     use crate::types::msg::QueryMsg;
     use crate::types::request_descriptor::RequestDescriptor;
     use cosmwasm_std::testing::mock_env;
@@ -41,9 +41,9 @@ mod tests {
         // store valid ask order
         let ask_order = AskOrder {
             id: "ask_id".into(),
-            ask_type: ASK_TYPE_COIN.to_string(),
+            ask_type: ASK_TYPE_COIN_TRADE.to_string(),
             owner: Addr::unchecked("asker"),
-            collateral: AskCollateral::coin(&coins(200, "base_1"), &coins(100, "quote_1")),
+            collateral: AskCollateral::coin_trade(&coins(200, "base_1"), &coins(100, "quote_1")),
             descriptor: Some(RequestDescriptor {
                 description: Some("a very nice description".to_string()),
                 effective_time: Some(Timestamp::default()),
