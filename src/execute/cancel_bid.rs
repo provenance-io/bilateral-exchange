@@ -36,6 +36,8 @@ pub fn cancel_bid(
     let coin_to_send = match &bid_order.collateral {
         BidCollateral::CoinTrade(collateral) => collateral.quote.to_owned(),
         BidCollateral::MarkerTrade(collateral) => collateral.quote.to_owned(),
+        BidCollateral::MarkerShareSale(collateral) => collateral.quote.to_owned(),
+        BidCollateral::ScopeTrade(collateral) => collateral.quote.to_owned(),
     };
     // Remove the bid order from storage now that it is no longer needed
     delete_bid_order_by_id(deps.storage, &id)?;

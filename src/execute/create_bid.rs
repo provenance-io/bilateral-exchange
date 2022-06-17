@@ -1,5 +1,4 @@
 use crate::storage::bid_order_storage::{get_bid_order_by_id, insert_bid_order};
-use crate::types::ask::ScopeTradeAsk;
 use crate::types::bid::{Bid, CoinTradeBid, MarkerShareSaleBid, MarkerTradeBid, ScopeTradeBid};
 use crate::types::bid_collateral::BidCollateral;
 use crate::types::bid_order::BidOrder;
@@ -338,7 +337,7 @@ mod tests {
         // verify execute create bid response returns ContractError::BidMissingQuote
         match create_bid_response {
             ContractError::InvalidFundsProvided { message } => {
-                assert_eq!("coin bid requests should include funds", message,);
+                assert_eq!("coin trade bid requests should include funds", message,);
             }
             e => panic!(
                 "unexpected error when no funds provided to create bid: {:?}",

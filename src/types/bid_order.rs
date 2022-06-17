@@ -1,7 +1,7 @@
 use crate::types::bid_collateral::BidCollateral;
 use crate::types::constants::{
-    ASK_TYPE_COIN_TRADE, ASK_TYPE_MARKER_TRADE, BID_TYPE_COIN_TRADE, BID_TYPE_MARKER_TRADE,
-    UNKNOWN_TYPE,
+    ASK_TYPE_COIN_TRADE, ASK_TYPE_MARKER_TRADE, BID_TYPE_COIN_TRADE, BID_TYPE_MARKER_SHARE_SALE,
+    BID_TYPE_MARKER_TRADE, BID_TYPE_SCOPE_TRADE, UNKNOWN_TYPE,
 };
 use crate::types::error::ContractError;
 use crate::types::request_descriptor::RequestDescriptor;
@@ -41,8 +41,10 @@ impl BidOrder {
         Self {
             id: id.into(),
             bid_type: match collateral {
-                BidCollateral::Coin { .. } => BID_TYPE_COIN_TRADE.to_string(),
-                BidCollateral::Marker { .. } => BID_TYPE_MARKER_TRADE.to_string(),
+                BidCollateral::CoinTrade { .. } => BID_TYPE_COIN_TRADE.to_string(),
+                BidCollateral::MarkerTrade { .. } => BID_TYPE_MARKER_TRADE.to_string(),
+                BidCollateral::MarkerShareSale { .. } => BID_TYPE_MARKER_SHARE_SALE.to_string(),
+                BidCollateral::ScopeTrade { .. } => BID_TYPE_SCOPE_TRADE.to_string(),
             },
             owner,
             collateral,

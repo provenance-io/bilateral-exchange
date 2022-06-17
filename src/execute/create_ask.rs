@@ -320,7 +320,7 @@ mod tests {
         // verify handle create ask response returns ContractError::MissingField { id }
         match create_ask_response {
             ContractError::InvalidFundsProvided { message } => {
-                assert_eq!("coin ask requests should include funds", message,)
+                assert_eq!("coin trade ask requests should include funds", message,)
             }
             e => panic!(
                 "unexpected error when including no funds in an ask request: {:?}",

@@ -1,9 +1,11 @@
 use crate::types::ask_collateral::{
-    AskCollateral, CoinTradeAskCollateral, MarkerTradeAskCollateral,
+    AskCollateral, CoinTradeAskCollateral, MarkerShareSaleAskCollateral, MarkerTradeAskCollateral,
+    ScopeTradeAskCollateral,
 };
 use crate::types::ask_order::AskOrder;
 use crate::types::bid_collateral::{
-    BidCollateral, CoinTradeBidCollateral, MarkerTradeBidCollateral,
+    BidCollateral, CoinTradeBidCollateral, MarkerShareSaleBidCollateral, MarkerTradeBidCollateral,
+    ScopeTradeBidCollateral,
 };
 use crate::types::bid_order::BidOrder;
 use crate::types::error::ContractError;
@@ -11,6 +13,7 @@ use crate::util::extensions::ResultExtensions;
 use crate::util::provenance_utilities::{calculate_marker_quote, get_single_marker_coin_holding};
 use cosmwasm_std::{Coin, DepsMut};
 use provwasm_std::{ProvenanceQuerier, ProvenanceQuery};
+use std::cmp::Ordering;
 
 pub fn validate_match(
     deps: &DepsMut<ProvenanceQuery>,
@@ -49,27 +52,45 @@ fn get_match_validation(
     match &ask.collateral {
         AskCollateral::CoinTrade(ask_collat) => match &bid.collateral {
             BidCollateral::CoinTrade(bid_collat) => validation_messages.append(
-                &mut get_coin_collateral_validation(ask, bid, ask_collat, bid_collat),
+                &mut get_coin_trade_collateral_validation(ask, bid, ask_collat, bid_collat),
             ),
             _ => validation_messages.push(format!(
-                "{} Ask collateral was of type coin, which did not match bid collateral",
+                "{} Ask collateral was of type coin trade, which did not match bid collateral",
                 identifiers
             )),
         },
         AskCollateral::MarkerTrade(ask_collat) => match &bid.collateral {
             BidCollateral::MarkerTrade(bid_collat) => validation_messages.append(
-                &mut get_marker_collateral_validation(deps, ask, bid, ask_collat, bid_collat),
+                &mut get_marker_trade_collateral_validation(deps, ask, bid, ask_collat, bid_collat),
             ),
             _ => validation_messages.push(format!(
-                "{} Ask collateral was of type marker, which did not match bid collateral",
+                "{} Ask collateral was of type marker trade, which did not match bid collateral",
                 identifiers
             )),
         },
-    }
+        AskCollateral::MarkerShareSale(ask_collat) => match &bid.collateral {
+            BidCollateral::MarkerShareSale(bid_collat) => validation_messages.append(
+                &mut get_marker_share_sale_collateral_validation(deps, ask, bid, ask_collat, bid_collat),
+            ),
+            _ => validation_messages.push(format!(
+                "{} Ask Collateral was of type marker share sale, which did not match bid collateral",
+                identifiers,
+            )),
+        },
+        AskCollateral::ScopeTrade(ask_collat) => match &bid.collateral {
+            BidCollateral::ScopeTrade(bid_collat) => validation_messages.append(
+                &mut get_scope_trade_collateral_validation(ask, bid, ask_collat, bid_collat),
+            ),
+            _ => validation_messages.push(format!(
+                "{} Ask Collateral was of type scope trade, which did not match bid collateral",
+                identifiers,
+            )),
+        }
+    };
     validation_messages
 }
 
-fn get_coin_collateral_validation(
+fn get_coin_trade_collateral_validation(
     ask: &AskOrder,
     bid: &BidOrder,
     ask_collateral: &CoinTradeAskCollateral,
@@ -77,16 +98,13 @@ fn get_coin_collateral_validation(
 ) -> Vec<String> {
     let mut validation_messages: Vec<String> = vec![];
     let identifiers = format!(
-        "COIN Match Validation for AskOrder [{}] and BidOrder [{}]:",
+        "COIN TRADE Match Validation for AskOrder [{}] and BidOrder [{}]:",
         &ask.id, &bid.id
     );
     let mut ask_base = ask_collateral.base.to_owned();
     let mut ask_quote = ask_collateral.quote.to_owned();
     let mut bid_base = bid_collateral.base.to_owned();
     let mut bid_quote = bid_collateral.quote.to_owned();
-    // sort the base and quote vectors by the order chain: denom, amount
-    let coin_sorter =
-        |a: &Coin, b: &Coin| a.denom.cmp(&b.denom).then_with(|| a.amount.cmp(&b.amount));
     ask_base.sort_by(coin_sorter);
     bid_base.sort_by(coin_sorter);
     ask_quote.sort_by(coin_sorter);
@@ -103,7 +121,7 @@ fn get_coin_collateral_validation(
     validation_messages
 }
 
-fn get_marker_collateral_validation(
+fn get_marker_trade_collateral_validation(
     deps: &DepsMut<ProvenanceQuery>,
     ask: &AskOrder,
     bid: &BidOrder,
@@ -112,7 +130,7 @@ fn get_marker_collateral_validation(
 ) -> Vec<String> {
     let mut validation_messages: Vec<String> = vec![];
     let identifiers = format!(
-        "MARKER Match Validation for AskOrder [{}] and BidOrder [{}]:",
+        "MARKER TRADE Match Validation for AskOrder [{}] and BidOrder [{}]:",
         &ask.id, &bid.id
     );
     if ask_collateral.denom != bid_collateral.denom {
@@ -174,9 +192,6 @@ fn get_marker_collateral_validation(
     };
     let mut ask_quote = calculate_marker_quote(marker_share_count, &ask_collateral.quote_per_share);
     let mut bid_quote = bid_collateral.quote.to_owned();
-    // sort the base and quote vectors by the order chain: denom, amount
-    let coin_sorter =
-        |a: &Coin, b: &Coin| a.denom.cmp(&b.denom).then_with(|| a.amount.cmp(&b.amount));
     ask_quote.sort_by(coin_sorter);
     bid_quote.sort_by(coin_sorter);
     if ask_quote != bid_quote {
@@ -186,6 +201,133 @@ fn get_marker_collateral_validation(
         ));
     }
     validation_messages
+}
+
+fn get_marker_share_sale_collateral_validation(
+    deps: &DepsMut<ProvenanceQuery>,
+    ask: &AskOrder,
+    bid: &BidOrder,
+    ask_collateral: &MarkerShareSaleAskCollateral,
+    bid_collateral: &MarkerShareSaleBidCollateral,
+) -> Vec<String> {
+    let mut validation_messages: Vec<String> = vec![];
+    let identifiers = format!(
+        "MARKER SHARE SALE Match Validation for AskOrder [{}] and BidOrder [{}]:",
+        &ask.id, &bid.id,
+    );
+    if ask_collateral.denom != bid_collateral.denom {
+        validation_messages.push(format!(
+            "{} Ask marker denom [{}] does not match bid marker denom [{}]",
+            &identifiers, &ask_collateral.denom, &bid_collateral.denom,
+        ));
+    }
+    if ask_collateral.address.as_str() != bid_collateral.address.as_str() {
+        validation_messages.push(format!(
+            "{} Ask marker address [{}] does not match bid marker address [{}]",
+            &identifiers,
+            &ask_collateral.address.as_str(),
+            &bid_collateral.address.as_str()
+        ));
+    }
+    // If a denom or address mismatch exists between the ask and bid, no other sane checks can be
+    // made because each refers to a different marker
+    if !validation_messages.is_empty() {
+        return validation_messages;
+    }
+    let marker =
+        match ProvenanceQuerier::new(&deps.querier).get_marker_by_denom(&ask_collateral.denom) {
+            Ok(marker) => marker,
+            // Exit early if the marker does not appear to be available in the Provenance Blockchain
+            // system.  No marker means the remaining checks are meaningless.
+            Err(_) => {
+                validation_messages.push(format!(
+                    "{} Failed to find marker for denom [{}]",
+                    &identifiers, &ask_collateral.denom
+                ));
+                return validation_messages;
+            }
+        };
+    if let Ok(marker_coin) = get_single_marker_coin_holding(&marker) {
+        if marker_coin.amount.u128() < bid_collateral.share_count.u128() {
+            validation_messages.push(format!(
+                "{} Marker had [{}] shares remaining, but the bid requested [{}] shares",
+                &identifiers,
+                marker_coin.amount.u128(),
+                bid_collateral.share_count.u128(),
+            ));
+        }
+        if marker_coin.amount.u128() != ask_collateral.remaining_shares.u128() {
+            validation_messages.push(format!(
+                "{} Marker had [{}] shares remaining, which does not match the stored amount of [{}]",
+                &identifiers,
+                marker_coin.amount.u128(),
+                ask_collateral.remaining_shares.u128(),
+            ));
+        }
+    } else {
+        validation_messages.push(format!(
+            "{} Marker had invalid coin holdings for match: {:?}. Expected a single instance of coin [{}]",
+            &identifiers,
+            marker
+                .coins
+                .into_iter()
+                .map(|coin| coin.denom)
+                .collect::<Vec<String>>(),
+            &ask_collateral.denom,
+        ));
+        return validation_messages;
+    }
+    let mut ask_quote = calculate_marker_quote(
+        bid_collateral.share_count.u128(),
+        &ask_collateral.quote_per_share,
+    );
+    let mut bid_quote = bid_collateral.quote.to_owned();
+    ask_quote.sort_by(coin_sorter);
+    bid_quote.sort_by(coin_sorter);
+    if ask_quote != bid_quote {
+        validation_messages.push(format!(
+            "{} Ask share price did not result in the same quote as the bid",
+            &identifiers,
+        ));
+    }
+    validation_messages
+}
+
+fn get_scope_trade_collateral_validation(
+    ask: &AskOrder,
+    bid: &BidOrder,
+    ask_collateral: &ScopeTradeAskCollateral,
+    bid_collateral: &ScopeTradeBidCollateral,
+) -> Vec<String> {
+    let mut validation_messages: Vec<String> = vec![];
+    let identifiers = format!(
+        "SCOPE TRADE Match Validation for AskOrder [{}] and Bid Order [{}]:",
+        &ask.id, &bid.id,
+    );
+    if ask_collateral.scope_address != bid_collateral.scope_address {
+        validation_messages.push(format!(
+            "{} Ask scope address [{}] does not match bid scope address [{}]",
+            &identifiers, &ask_collateral.scope_address, &bid_collateral.scope_address,
+        ));
+    }
+    let mut ask_quote = ask_collateral.quote.to_owned();
+    let mut bid_quote = bid_collateral.quote.to_owned();
+    ask_quote.sort_by(coin_sorter);
+    bid_quote.sort_by(coin_sorter);
+    if ask_quote != bid_quote {
+        validation_messages.push(format!(
+            "{} Ask quote does not match bid quote",
+            &identifiers,
+        ));
+    }
+    validation_messages
+}
+
+fn coin_sorter(first: &Coin, second: &Coin) -> Ordering {
+    first
+        .denom
+        .cmp(&second.denom)
+        .then_with(|| first.amount.cmp(&second.amount))
 }
 
 #[cfg(test)]
@@ -336,7 +478,7 @@ mod tests {
                 collateral: BidCollateral::coin_trade(&[], &[]),
                 descriptor: None,
             },
-            expected_error("Ask type [coin] does not match bid type [marker]"),
+            expected_error("Ask type [coin_trade] does not match bid type [marker_trade]"),
         );
         assert_validation_failure(
             "Ask type marker and bid type coin mismatch",
@@ -355,7 +497,7 @@ mod tests {
                 collateral: BidCollateral::coin_trade(&[], &[]),
                 descriptor: None,
             },
-            expected_error("Ask type [marker] does not match bid type [coin]"),
+            expected_error("Ask type [marker_trade] does not match bid type [coin_trade]"),
         );
     }
 
@@ -367,14 +509,18 @@ mod tests {
             &deps.as_mut(),
             &mock_ask(AskCollateral::coin_trade(&[], &[])),
             &mock_bid(mock_bid_marker("marker", "somecoin", &[])),
-            expected_error("Ask collateral was of type coin, which did not match bid collateral"),
+            expected_error(
+                "Ask collateral was of type coin trade, which did not match bid collateral",
+            ),
         );
         assert_validation_failure(
             "Ask collateral marker and bid collateral coin mismatch",
             &deps.as_mut(),
             &mock_ask(mock_ask_marker("marker", "somecoin", 400, &[])),
             &mock_bid(BidCollateral::coin_trade(&[], &[])),
-            expected_error("Ask collateral was of type marker, which did not match bid collateral"),
+            expected_error(
+                "Ask collateral was of type marker trade, which did not match bid collateral",
+            ),
         );
     }
 
@@ -388,7 +534,7 @@ mod tests {
             &deps.as_mut(),
             &ask_order,
             &bid_order,
-            expected_coin_error("Ask base does not match bid base"),
+            coin_trade_error("Ask base does not match bid base"),
         );
         ask_order.collateral = AskCollateral::coin_trade(&coins(100, "a"), &[]);
         bid_order.collateral = BidCollateral::coin_trade(&coins(100, "b"), &[]);
@@ -397,7 +543,7 @@ mod tests {
             &deps.as_mut(),
             &ask_order,
             &bid_order,
-            expected_coin_error("Ask base does not match bid base"),
+            coin_trade_error("Ask base does not match bid base"),
         );
         ask_order.collateral = AskCollateral::coin_trade(&[coin(100, "a"), coin(100, "b")], &[]);
         bid_order.collateral = BidCollateral::coin_trade(&coins(100, "a"), &[]);
@@ -406,7 +552,7 @@ mod tests {
             &deps.as_mut(),
             &ask_order,
             &bid_order,
-            expected_coin_error("Ask base does not match bid base"),
+            coin_trade_error("Ask base does not match bid base"),
         );
         ask_order.collateral = AskCollateral::coin_trade(&coins(100, "a"), &[]);
         bid_order.collateral = BidCollateral::coin_trade(&[coin(100, "a"), coin(100, "b")], &[]);
@@ -415,7 +561,7 @@ mod tests {
             &deps.as_mut(),
             &ask_order,
             &bid_order,
-            expected_coin_error("Ask base does not match bid base"),
+            coin_trade_error("Ask base does not match bid base"),
         );
     }
 
@@ -429,7 +575,7 @@ mod tests {
             &deps.as_mut(),
             &ask_order,
             &bid_order,
-            expected_coin_error("Ask quote does not match bid quote"),
+            coin_trade_error("Ask quote does not match bid quote"),
         );
         ask_order.collateral = AskCollateral::coin_trade(&[], &coins(4000, "acoin"));
         bid_order.collateral = BidCollateral::coin_trade(&[], &coins(4000, "bcoin"));
@@ -438,7 +584,7 @@ mod tests {
             &deps.as_mut(),
             &ask_order,
             &bid_order,
-            expected_coin_error("Ask quote does not match bid quote"),
+            coin_trade_error("Ask quote does not match bid quote"),
         );
         ask_order.collateral =
             AskCollateral::coin_trade(&[], &[coin(200, "acoin"), coin(200, "bcoin")]);
@@ -448,7 +594,7 @@ mod tests {
             &deps.as_mut(),
             &ask_order,
             &bid_order,
-            expected_coin_error("Ask quote does not match bid quote"),
+            coin_trade_error("Ask quote does not match bid quote"),
         );
         ask_order.collateral = AskCollateral::coin_trade(&[], &coins(200, "acoin"));
         bid_order.collateral =
@@ -458,7 +604,7 @@ mod tests {
             &deps.as_mut(),
             &ask_order,
             &bid_order,
-            expected_coin_error("Ask quote does not match bid quote"),
+            coin_trade_error("Ask quote does not match bid quote"),
         );
     }
 
@@ -470,7 +616,7 @@ mod tests {
             &deps.as_mut(),
             &mock_ask(mock_ask_marker("marker", "firstmarkerdenom", 10, &[])),
             &mock_bid(mock_bid_marker("marker", "secondmarkerdenom", &[])),
-            expected_marker_error("Ask marker denom [firstmarkerdenom] does not match bid marker denom [secondmarkerdenom]"),
+            marker_trade_error("Ask marker denom [firstmarkerdenom] does not match bid marker denom [secondmarkerdenom]"),
         );
     }
 
@@ -482,7 +628,7 @@ mod tests {
             &deps.as_mut(),
             &mock_ask(mock_ask_marker("marker1", "test", 10, &[])),
             &mock_bid(mock_bid_marker("marker2", "test", &[])),
-            expected_marker_error(
+            marker_trade_error(
                 "Ask marker address [marker1] does not match bid marker address [marker2]",
             ),
         );
@@ -496,7 +642,7 @@ mod tests {
             &deps.as_mut(),
             &mock_ask(mock_ask_marker("marker", "test", 10, &[])),
             &mock_bid(mock_bid_marker("marker", "test", &[])),
-            expected_marker_error("Failed to find marker for denom [test]"),
+            marker_trade_error("Failed to find marker for denom [test]"),
         );
     }
 
@@ -517,7 +663,7 @@ mod tests {
             &deps.as_mut(),
             &ask,
             &bid,
-            expected_marker_error("Marker had invalid coin holdings for match: [\"nhash\", \"mydenom\"]. Expected a single instance of coin [targetcoin]"),
+            marker_trade_error("Marker had invalid coin holdings for match: [\"nhash\", \"mydenom\"]. Expected a single instance of coin [targetcoin]"),
         );
         marker.coins = vec![];
         deps.querier.with_markers(vec![marker.clone()]);
@@ -526,7 +672,7 @@ mod tests {
             &deps.as_mut(),
             &ask,
             &bid,
-            expected_marker_error("Marker had invalid coin holdings for match: []. Expected a single instance of coin [targetcoin]"),
+            marker_trade_error("Marker had invalid coin holdings for match: []. Expected a single instance of coin [targetcoin]"),
         );
         marker.coins = vec![coin(10, "targetcoin"), coin(20, "targetcoin")];
         deps.querier.with_markers(vec![marker]);
@@ -535,7 +681,7 @@ mod tests {
             &deps.as_mut(),
             &ask,
             &bid,
-            expected_marker_error("Marker had invalid coin holdings for match: [\"targetcoin\", \"targetcoin\"]. Expected a single instance of coin [targetcoin]"),
+            marker_trade_error("Marker had invalid coin holdings for match: [\"targetcoin\", \"targetcoin\"]. Expected a single instance of coin [targetcoin]"),
         );
     }
 
@@ -554,7 +700,7 @@ mod tests {
             &deps.as_mut(),
             &mock_ask(mock_ask_marker("marker", "targetcoin", 49, &[])),
             &mock_bid(mock_bid_marker("marker", "targetcoin", &[])),
-            expected_marker_error("Marker share count was [50] but the original value when added to the contract was [49]"),
+            marker_trade_error("Marker share count was [50] but the original value when added to the contract was [49]"),
         );
     }
 
@@ -582,7 +728,7 @@ mod tests {
                 "targetcoin",
                 &coins(200, "nhash"),
             )),
-            expected_marker_error("Ask quote did not match bid quote"),
+            marker_trade_error("Ask quote did not match bid quote"),
         );
     }
 
@@ -625,17 +771,31 @@ mod tests {
         )
     }
 
-    fn expected_coin_error<S: Into<String>>(suffix: S) -> String {
+    fn coin_trade_error<S: Into<String>>(suffix: S) -> String {
         format!(
-            "COIN Match Validation for AskOrder [ask_id] and BidOrder [bid_id]: {}",
+            "COIN TRADE Match Validation for AskOrder [ask_id] and BidOrder [bid_id]: {}",
             suffix.into()
         )
     }
 
-    fn expected_marker_error<S: Into<String>>(suffix: S) -> String {
+    fn marker_trade_error<S: Into<String>>(suffix: S) -> String {
         format!(
-            "MARKER Match Validation for AskOrder [ask_id] and BidOrder [bid_id]: {}",
+            "MARKER TRADE Match Validation for AskOrder [ask_id] and BidOrder [bid_id]: {}",
             suffix.into()
+        )
+    }
+
+    fn marker_share_sale_error<S: Into<String>>(suffix: S) -> String {
+        format!(
+            "MARKER SHARE SALE Match Validation for AskOrder [ask_id] and BidOrder [bid_id]: {}",
+            suffix.into(),
+        )
+    }
+
+    fn scope_trade_error<S: Into<String>>(suffix: S) -> String {
+        format!(
+            "SCOPE TRADE Match Validation for AskOrder [ask_id] and BidOrder [bid_id]: {}",
+            suffix.into(),
         )
     }
 

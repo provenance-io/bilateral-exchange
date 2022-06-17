@@ -1,8 +1,16 @@
 use crate::storage::ask_order_storage::{delete_ask_order_by_id, get_ask_order_by_id};
 use crate::storage::bid_order_storage::{delete_bid_order_by_id, get_bid_order_by_id};
 use crate::storage::contract_info::get_contract_info;
-use crate::types::ask_collateral::AskCollateral;
-use crate::types::bid_collateral::BidCollateral;
+use crate::types::ask_collateral::{
+    AskCollateral, CoinTradeAskCollateral, MarkerShareSaleAskCollateral, MarkerTradeAskCollateral,
+    ScopeTradeAskCollateral,
+};
+use crate::types::ask_order::AskOrder;
+use crate::types::bid_collateral::{
+    CoinTradeBidCollateral, MarkerShareSaleBidCollateral, MarkerTradeBidCollateral,
+    ScopeTradeBidCollateral,
+};
+use crate::types::bid_order::BidOrder;
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
 use crate::validation::execute_match_validation::validate_match;
@@ -48,62 +56,146 @@ pub fn execute_match(
 
     validate_match(&deps, &ask_order, &bid_order)?;
 
-    let mut messages: Vec<CosmosMsg<ProvenanceMsg>> = vec![];
-    match &ask_order.collateral {
-        // Send quote to asker when a coin match is made
-        AskCollateral::CoinTrade(collateral) => messages.push(CosmosMsg::Bank(BankMsg::Send {
-            to_address: ask_order.owner.to_string(),
-            amount: collateral.quote.to_owned(),
-        })),
-        // Now that the match has been made, grant all permissions on the marker to the bidder that
-        // the asker once had.  The validation code has already ensured that the asker was an admin
-        // of the marker, so the bidder at very least has the permission on the marker to grant
-        // themselves any remaining permissions they desire.
-        AskCollateral::MarkerTrade(collateral) => {
-            if let Some(asker_permissions) = collateral
-                .removed_permissions
-                .iter()
-                .find(|perm| perm.address == ask_order.owner)
-            {
-                messages.push(grant_marker_access(
-                    &collateral.denom,
-                    bid_order.owner.clone(),
-                    asker_permissions.permissions.to_owned(),
-                )?);
-            } else {
-                return ContractError::AskBidMismatch.to_err();
-            }
-        }
+    let execute_result = match &ask_order.collateral {
+        AskCollateral::CoinTrade(collateral) => execute_coin_trade(
+            deps,
+            &ask_order,
+            &bid_order,
+            collateral,
+            bid_order.collateral.get_coin_trade()?,
+        )?,
+        AskCollateral::MarkerTrade(collateral) => execute_marker_trade(
+            deps,
+            &env,
+            &ask_order,
+            &bid_order,
+            collateral,
+            bid_order.collateral.get_marker_trade()?,
+        )?,
+        AskCollateral::MarkerShareSale(collateral) => execute_marker_share_sale(
+            deps,
+            &env,
+            &ask_order,
+            &bid_order,
+            collateral,
+            bid_order.collateral.get_marker_share_sale()?,
+        )?,
+        AskCollateral::ScopeTrade(collateral) => execute_scope_trade(
+            deps,
+            &env,
+            &ask_order,
+            &bid_order,
+            collateral,
+            bid_order.collateral.get_scope_trade()?,
+        )?,
     };
-    match &bid_order.collateral {
-        // Send base to bidder when a coin match is made
-        BidCollateral::CoinTrade(collateral) => messages.push(CosmosMsg::Bank(BankMsg::Send {
-            to_address: bid_order.owner.to_string(),
-            amount: collateral.base.to_owned(),
-        })),
-        BidCollateral::MarkerTrade(collateral) => {
-            // Send the entirety of the quote to the asker. They have just effectively sold their
-            // marker to the bidder.
-            messages.push(CosmosMsg::Bank(BankMsg::Send {
-                to_address: ask_order.owner.to_string(),
-                amount: collateral.quote.to_owned(),
-            }));
-            messages.push(revoke_marker_access(
-                &collateral.denom,
-                env.contract.address,
-            )?);
-        }
-    }
-    // Now that all matching has concluded, we simply need to delete the ask and bid from storage
-    delete_ask_order_by_id(deps.storage, &ask_order.id)?;
-    delete_bid_order_by_id(deps.storage, &bid_order.id)?;
 
     Response::new()
-        .add_messages(messages)
+        .add_messages(execute_result.messages)
         .add_attribute("action", "execute")
         .add_attribute("ask_id", &ask_order.id)
         .add_attribute("bid_id", &bid_order.id)
         .to_ok()
+}
+
+struct ExecuteResults {
+    pub messages: Vec<CosmosMsg<ProvenanceMsg>>,
+}
+impl ExecuteResults {
+    fn new(messages: Vec<CosmosMsg<ProvenanceMsg>>) -> Self {
+        Self { messages }
+    }
+}
+
+fn execute_coin_trade(
+    deps: DepsMut<ProvenanceQuery>,
+    ask_order: &AskOrder,
+    bid_order: &BidOrder,
+    ask_collateral: &CoinTradeAskCollateral,
+    bid_collateral: &CoinTradeBidCollateral,
+) -> Result<ExecuteResults, ContractError> {
+    // Remove ask and bid - this transaction has concluded
+    delete_ask_order_by_id(deps.storage, &ask_order.id)?;
+    delete_bid_order_by_id(deps.storage, &bid_order.id)?;
+    ExecuteResults::new(vec![
+        CosmosMsg::Bank(BankMsg::Send {
+            to_address: ask_order.owner.to_string(),
+            amount: ask_collateral.quote.to_owned(),
+        }),
+        CosmosMsg::Bank(BankMsg::Send {
+            to_address: bid_order.owner.to_string(),
+            amount: bid_collateral.base.to_owned(),
+        }),
+    ])
+    .to_ok()
+}
+
+fn execute_marker_trade(
+    deps: DepsMut<ProvenanceQuery>,
+    env: &Env,
+    ask_order: &AskOrder,
+    bid_order: &BidOrder,
+    ask_collateral: &MarkerTradeAskCollateral,
+    bid_collateral: &MarkerTradeBidCollateral,
+) -> Result<ExecuteResults, ContractError> {
+    // Now that the match has been made, grant all permissions on the marker to the bidder that
+    // the asker once had.  The validation code has already ensured that the asker was an admin
+    // of the marker, so the bidder at very least has the permission on the marker to grant
+    // themselves any remaining permissions they desire.
+    let mut messages = vec![];
+    if let Some(asker_permissions) = ask_collateral
+        .removed_permissions
+        .iter()
+        .find(|perm| perm.address == ask_order.owner)
+    {
+        messages.push(grant_marker_access(
+            &ask_collateral.denom,
+            bid_order.owner.clone(),
+            asker_permissions.permissions.to_owned(),
+        )?);
+    } else {
+        return ContractError::validation_error(&[
+            "failed to find access permissions in the revoked permissions for the asker"
+                .to_string(),
+        ])
+        .to_err();
+    }
+    // Send the entirety of the quote to the asker. They have just effectively sold their
+    // marker to the bidder.
+    messages.push(CosmosMsg::Bank(BankMsg::Send {
+        to_address: ask_order.owner.to_string(),
+        amount: bid_collateral.quote.to_owned(),
+    }));
+    messages.push(revoke_marker_access(
+        &bid_collateral.denom,
+        env.contract.address.to_owned(),
+    )?);
+    // Remove ask and bid - this transaction has concluded
+    delete_ask_order_by_id(deps.storage, &ask_order.id)?;
+    delete_bid_order_by_id(deps.storage, &bid_order.id)?;
+    ExecuteResults::new(messages).to_ok()
+}
+
+fn execute_marker_share_sale(
+    _deps: DepsMut<ProvenanceQuery>,
+    _env: &Env,
+    _ask_order: &AskOrder,
+    _bid_order: &BidOrder,
+    _ask_collateral: &MarkerShareSaleAskCollateral,
+    _bid_collateral: &MarkerShareSaleBidCollateral,
+) -> Result<ExecuteResults, ContractError> {
+    ContractError::unauthorized().to_err()
+}
+
+fn execute_scope_trade(
+    _deps: DepsMut<ProvenanceQuery>,
+    _env: &Env,
+    _ask_order: &AskOrder,
+    _bid_order: &BidOrder,
+    _ask_collateral: &ScopeTradeAskCollateral,
+    _bid_collateral: &ScopeTradeBidCollateral,
+) -> Result<ExecuteResults, ContractError> {
+    ContractError::unauthorized().to_err()
 }
 
 #[cfg(test)]

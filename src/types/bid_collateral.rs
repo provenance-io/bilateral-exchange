@@ -1,3 +1,5 @@
+use crate::types::error::ContractError;
+use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::{Addr, Coin, Uint128};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -35,6 +37,34 @@ impl BidCollateral {
 
     pub fn scope_trade<S: Into<String>>(scope_address: S, quote: &[Coin]) -> Self {
         Self::ScopeTrade(ScopeTradeBidCollateral::new(scope_address, quote))
+    }
+
+    pub fn get_coin_trade(&self) -> Result<&CoinTradeBidCollateral, ContractError> {
+        match self {
+            Self::CoinTrade(collateral) => collateral.to_ok(),
+            _ => ContractError::invalid_type("expected coin trade bid collateral").to_err(),
+        }
+    }
+    
+    pub fn get_marker_trade(&self) -> Result<&MarkerTradeBidCollateral, ContractError> {
+        match self {
+            Self::MarkerTrade(collateral) => collateral.to_ok(),
+            _ => ContractError::invalid_type("expected marker trade bid collateral").to_err(),
+        }
+    }
+    
+    pub fn get_marker_share_sale(&self) -> Result<&MarkerShareSaleBidCollateral, ContractError> {
+        match self {
+            Self::MarkerShareSale(collateral) => collateral.to_ok(),
+            _ => ContractError::invalid_type("expected marker share sale bid collateral").to_err(),
+        }
+    }
+    
+    pub fn get_scope_trade(&self) -> Result<&ScopeTradeBidCollateral, ContractError> {
+        match self {
+            Self::ScopeTrade(collateral) => collateral.to_ok(),
+            _ => ContractError::invalid_type("expected scope trade bid collateral").to_err(),
+        }
     }
 }
 

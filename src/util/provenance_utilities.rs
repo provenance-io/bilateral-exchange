@@ -121,6 +121,25 @@ pub fn check_scope_owners(
     ().to_ok()
 }
 
+/// Switches the scope's current owner value to the given owner value.
+pub fn replace_scope_owner(mut scope: Scope, new_owner: Addr) -> Scope {
+    // Empty out all owners from the scope now that it's verified safe to do
+    scope.owners = scope
+        .owners
+        .into_iter()
+        .filter(|owner| owner.role != PartyType::Owner)
+        .collect();
+    // Append the target value as the new sole owner
+    scope.owners.push(Party {
+        address: new_owner.clone(),
+        role: PartyType::Owner,
+    });
+    // Swap over the value owner, ensuring that the target owner not only is listed as an owner,
+    // but has full access control over the scope
+    scope.value_owner_address = new_owner;
+    scope
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

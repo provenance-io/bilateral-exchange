@@ -3,8 +3,12 @@ use crate::storage::contract_info::get_contract_info;
 use crate::types::ask_collateral::AskCollateral;
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
-use cosmwasm_std::{to_binary, BankMsg, CosmosMsg, DepsMut, Env, MessageInfo, Response};
-use provwasm_std::{grant_marker_access, revoke_marker_access, ProvenanceMsg, ProvenanceQuery};
+use crate::util::provenance_utilities::replace_scope_owner;
+use cosmwasm_std::{to_binary, Addr, BankMsg, CosmosMsg, DepsMut, Env, MessageInfo, Response};
+use provwasm_std::{
+    grant_marker_access, revoke_marker_access, write_scope, AccessGrant, ProvenanceMsg,
+    ProvenanceQuerier, ProvenanceQuery,
+};
 
 // cancel ask entrypoint
 pub fn cancel_ask(
@@ -42,21 +46,24 @@ pub fn cancel_ask(
             }));
         }
         AskCollateral::MarkerTrade(collateral) => {
-            // Restore all permissions that the marker had before it was transferred to the
-            // contract.
-            for permission in &collateral.removed_permissions {
-                messages.push(grant_marker_access(
-                    &collateral.denom,
-                    permission.address.to_owned(),
-                    permission.permissions.to_owned(),
-                )?);
-            }
-            // Remove the contract's ownership of the marker now that it is no longer available for
-            // sale.
-            messages.push(revoke_marker_access(
+            messages.append(&mut relinquish_marker(
                 &collateral.denom,
-                env.contract.address,
+                &env.contract.address,
+                &collateral.removed_permissions,
             )?);
+        }
+        AskCollateral::MarkerShareSale(collateral) => {
+            messages.append(&mut relinquish_marker(
+                &collateral.denom,
+                &env.contract.address,
+                &collateral.removed_permissions,
+            )?);
+        }
+        AskCollateral::ScopeTrade(collateral) => {
+            let mut scope =
+                ProvenanceQuerier::new(&deps.querier).get_scope(&collateral.scope_address)?;
+            scope = replace_scope_owner(scope, ask_order.owner.to_owned());
+            messages.push(write_scope(scope, vec![env.contract.address])?);
         }
     }
     delete_ask_order_by_id(deps.storage, &ask_order.id)?;
@@ -65,6 +72,30 @@ pub fn cancel_ask(
         .add_attribute("action", "cancel_ask")
         .set_data(to_binary(&ask_order)?)
         .to_ok()
+}
+
+fn relinquish_marker<S: Into<String>>(
+    marker_denom: S,
+    contract_address: &Addr,
+    removed_permissions: &[AccessGrant],
+) -> Result<Vec<CosmosMsg<ProvenanceMsg>>, ContractError> {
+    let marker_denom = marker_denom.into();
+    // Remove the contract's ownership of the marker now that it is no longer available for
+    // sale / trade.
+    let mut messages = vec![revoke_marker_access(
+        &marker_denom,
+        contract_address.to_owned(),
+    )?];
+    // Restore all permissions that the marker had before it was transferred to the
+    // contract.
+    for permission in removed_permissions {
+        messages.push(grant_marker_access(
+            &marker_denom,
+            permission.address.to_owned(),
+            permission.permissions.to_owned(),
+        )?);
+    }
+    messages.to_ok()
 }
 
 #[cfg(test)]

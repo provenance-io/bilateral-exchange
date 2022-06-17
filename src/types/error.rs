@@ -3,14 +3,8 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ContractError {
-    #[error("Ask Order does not match Bid Order")]
-    AskBidMismatch,
-
     #[error("Cannot send funds when canceling order")]
     CancelWithFunds,
-
-    #[error("Cannot send funds when executing match")]
-    ExecuteWithFunds,
 
     #[error("Cannot create [{id_type}] with id [{id}]. One with that id already exists")]
     ExistingId { id_type: String, id: String },
@@ -30,11 +24,11 @@ pub enum ContractError {
         explanation: String,
     },
 
+    #[error("Invalid type encountered: {explanation}")]
+    InvalidType { explanation: String },
+
     #[error("Missing field: {field:?}")]
     MissingField { field: String },
-
-    #[error("Bid quote was not sent")]
-    MissingBidQuote,
 
     #[error("{0}")]
     Std(#[from] StdError),
@@ -44,4 +38,66 @@ pub enum ContractError {
 
     #[error("Unauthorized")]
     Unauthorized,
+}
+impl ContractError {
+    pub fn cancel_with_funds() -> ContractError {
+        ContractError::CancelWithFunds
+    }
+
+    pub fn existing_id<S1: Into<String>, S2: Into<String>>(id_type: S1, id: S2) -> ContractError {
+        ContractError::ExistingId {
+            id_type: id_type.into(),
+            id: id.into(),
+        }
+    }
+
+    pub fn validation_error(messages: &[String]) -> ContractError {
+        ContractError::ValidationError {
+            messages: messages.to_owned(),
+        }
+    }
+
+    pub fn invalid_funds_provided<S: Into<String>>(message: S) -> ContractError {
+        ContractError::InvalidFundsProvided {
+            message: message.into(),
+        }
+    }
+
+    pub fn invalid_marker<S: Into<String>>(message: S) -> ContractError {
+        ContractError::InvalidMarker {
+            message: message.into(),
+        }
+    }
+
+    pub fn invalid_scope_owner<S1: Into<String>, S2: Into<String>>(
+        scope_address: S1,
+        explanation: S2,
+    ) -> ContractError {
+        ContractError::InvalidScopeOwner {
+            scope_address: scope_address.into(),
+            explanation: explanation.into(),
+        }
+    }
+
+    pub fn invalid_type<S: Into<String>>(explanation: S) -> ContractError {
+        ContractError::InvalidType {
+            explanation: explanation.into(),
+        }
+    }
+
+    pub fn missing_field<S: Into<String>>(field: S) -> ContractError {
+        ContractError::MissingField {
+            field: field.into(),
+        }
+    }
+
+    pub fn storage_error<S: Into<String>>(message: S) -> ContractError {
+        ContractError::StorageError {
+            message: message.into(),
+        }
+    }
+
+    pub fn unauthorized() -> ContractError {
+        ContractError::Unauthorized
+    }
 }
