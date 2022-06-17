@@ -1,6 +1,7 @@
 use crate::types::constants::{
     ASK_TYPE_COIN_TRADE, ASK_TYPE_MARKER_SHARE_SALE, ASK_TYPE_MARKER_TRADE, ASK_TYPE_SCOPE_TRADE,
 };
+use crate::types::share_sale_type::ShareSaleType;
 use cosmwasm_std::Coin;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -30,8 +31,14 @@ impl Ask {
         id: S1,
         denom: S2,
         quote_per_share: &[Coin],
+        share_sale_type: ShareSaleType,
     ) -> Self {
-        Self::MarkerShareSale(MarkerShareSaleAsk::new(id, denom, quote_per_share))
+        Self::MarkerShareSale(MarkerShareSaleAsk::new(
+            id,
+            denom,
+            quote_per_share,
+            share_sale_type,
+        ))
     }
 
     pub fn new_scope_trade<S1: Into<String>, S2: Into<String>>(
@@ -107,17 +114,20 @@ pub struct MarkerShareSaleAsk {
     pub id: String,
     pub denom: String,
     pub quote_per_share: Vec<Coin>,
+    pub share_sale_type: ShareSaleType,
 }
 impl MarkerShareSaleAsk {
     pub fn new<S1: Into<String>, S2: Into<String>>(
         id: S1,
         denom: S2,
         quote_per_share: &[Coin],
+        share_sale_type: ShareSaleType,
     ) -> Self {
         Self {
             id: id.into(),
             denom: denom.into(),
             quote_per_share: quote_per_share.to_owned(),
+            share_sale_type,
         }
     }
 }

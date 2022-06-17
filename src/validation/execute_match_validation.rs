@@ -9,6 +9,7 @@ use crate::types::bid_collateral::{
 };
 use crate::types::bid_order::BidOrder;
 use crate::types::error::ContractError;
+use crate::types::share_sale_type::ShareSaleType;
 use crate::util::extensions::ResultExtensions;
 use crate::util::provenance_utilities::{calculate_marker_quote, get_single_marker_coin_holding};
 use cosmwasm_std::{Coin, DepsMut};
@@ -233,6 +234,45 @@ fn get_marker_share_sale_collateral_validation(
     // made because each refers to a different marker
     if !validation_messages.is_empty() {
         return validation_messages;
+    }
+    match ask_collateral.sale_type {
+        ShareSaleType::SingleTransaction { share_count } => {
+            if bid_collateral.share_count.u128() != share_count.u128() {
+                validation_messages.push(format!(
+                    "{} Ask requested that [{}] shares be purchased, but bid wanted [{}]",
+                    &identifiers,
+                    share_count.u128(),
+                    bid_collateral.share_count.u128(),
+                ));
+            }
+        }
+        ShareSaleType::MultipleTransactions {
+            remove_sale_share_threshold,
+        } => {
+            if ask_collateral.remaining_shares.u128() < bid_collateral.share_count.u128() {
+                validation_messages.push(format!(
+                    "{} Bid requested [{}] but the remaining share count is [{}]",
+                    &identifiers,
+                    bid_collateral.share_count.u128(),
+                    ask_collateral.remaining_shares.u128()
+                ));
+            } else {
+                let shares_remaining_after_sale =
+                    ask_collateral.remaining_shares.u128() - bid_collateral.share_count.u128();
+                let share_threshold = remove_sale_share_threshold.map(|u| u.u128()).unwrap_or(0);
+                if shares_remaining_after_sale < share_threshold {
+                    validation_messages.push(
+                        format!(
+                            "{} Bid requested [{}] shares, which would reduce the remaining share count to [{}], which is lower than the specified threshold of [{}] shares",
+                            &identifiers,
+                            bid_collateral.share_count.u128(),
+                            shares_remaining_after_sale,
+                            share_threshold,
+                        )
+                    );
+                }
+            }
+        }
     }
     let marker =
         match ProvenanceQuerier::new(&deps.querier).get_marker_by_denom(&ask_collateral.denom) {

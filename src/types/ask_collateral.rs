@@ -2,6 +2,7 @@ use cosmwasm_std::{Addr, Coin, Uint128};
 use provwasm_std::AccessGrant;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use crate::types::share_sale_type::ShareSaleType;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -38,6 +39,7 @@ impl AskCollateral {
         remaining_shares: u128,
         quote_per_share: &[Coin],
         removed_permissions: &[AccessGrant],
+        sale_type: ShareSaleType,
     ) -> Self {
         Self::MarkerShareSale(MarkerShareSaleAskCollateral::new(
             address,
@@ -45,6 +47,7 @@ impl AskCollateral {
             remaining_shares,
             quote_per_share,
             removed_permissions,
+            sale_type,
         ))
     }
 
@@ -103,6 +106,7 @@ pub struct MarkerShareSaleAskCollateral {
     pub remaining_shares: Uint128,
     pub quote_per_share: Vec<Coin>,
     pub removed_permissions: Vec<AccessGrant>,
+    pub sale_type: ShareSaleType,
 }
 impl MarkerShareSaleAskCollateral {
     fn new<S: Into<String>>(
@@ -111,6 +115,7 @@ impl MarkerShareSaleAskCollateral {
         remaining_shares: u128,
         quote_per_share: &[Coin],
         removed_permissions: &[AccessGrant],
+        sale_type: ShareSaleType,
     ) -> Self {
         Self {
             address,
@@ -118,6 +123,7 @@ impl MarkerShareSaleAskCollateral {
             remaining_shares: Uint128::new(remaining_shares),
             quote_per_share: quote_per_share.to_owned(),
             removed_permissions: removed_permissions.to_owned(),
+            sale_type,
         }
     }
 }

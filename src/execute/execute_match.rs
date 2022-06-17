@@ -1,4 +1,6 @@
-use crate::storage::ask_order_storage::{delete_ask_order_by_id, get_ask_order_by_id};
+use crate::storage::ask_order_storage::{
+    delete_ask_order_by_id, get_ask_order_by_id, insert_ask_order,
+};
 use crate::storage::bid_order_storage::{delete_bid_order_by_id, get_bid_order_by_id};
 use crate::storage::contract_info::get_contract_info;
 use crate::types::ask_collateral::{
@@ -12,10 +14,15 @@ use crate::types::bid_collateral::{
 };
 use crate::types::bid_order::BidOrder;
 use crate::types::error::ContractError;
+use crate::types::share_sale_type::ShareSaleType;
 use crate::util::extensions::ResultExtensions;
+use crate::util::provenance_utilities::{release_marker_from_contract, replace_scope_owner};
 use crate::validation::execute_match_validation::validate_match;
-use cosmwasm_std::{BankMsg, CosmosMsg, DepsMut, Env, MessageInfo, Response};
-use provwasm_std::{grant_marker_access, revoke_marker_access, ProvenanceMsg, ProvenanceQuery};
+use cosmwasm_std::{BankMsg, CosmosMsg, DepsMut, Env, MessageInfo, Response, Uint128};
+use provwasm_std::{
+    revoke_marker_access, withdraw_coins, write_scope, ProvenanceMsg, ProvenanceQuerier,
+    ProvenanceQuery,
+};
 
 // match and execute an ask and bid order
 pub fn execute_match(
@@ -138,20 +145,22 @@ fn execute_marker_trade(
     ask_collateral: &MarkerTradeAskCollateral,
     bid_collateral: &MarkerTradeBidCollateral,
 ) -> Result<ExecuteResults, ContractError> {
-    // Now that the match has been made, grant all permissions on the marker to the bidder that
-    // the asker once had.  The validation code has already ensured that the asker was an admin
-    // of the marker, so the bidder at very least has the permission on the marker to grant
-    // themselves any remaining permissions they desire.
     let mut messages = vec![];
     if let Some(asker_permissions) = ask_collateral
         .removed_permissions
         .iter()
         .find(|perm| perm.address == ask_order.owner)
     {
-        messages.push(grant_marker_access(
+        // Now that the match has been made, grant all permissions on the marker to the bidder that
+        // the asker once had.  The validation code has already ensured that the asker was an admin
+        // of the marker, so the bidder at very least has the permission on the marker to grant
+        // themselves any remaining permissions they desire.
+        let mut bidder_permissions = asker_permissions.to_owned();
+        bidder_permissions.address = bid_order.owner.to_owned();
+        messages.append(&mut release_marker_from_contract(
             &ask_collateral.denom,
-            bid_order.owner.clone(),
-            asker_permissions.permissions.to_owned(),
+            &env.contract.address,
+            &[bidder_permissions.to_owned()],
         )?);
     } else {
         return ContractError::validation_error(&[
@@ -166,10 +175,6 @@ fn execute_marker_trade(
         to_address: ask_order.owner.to_string(),
         amount: bid_collateral.quote.to_owned(),
     }));
-    messages.push(revoke_marker_access(
-        &bid_collateral.denom,
-        env.contract.address.to_owned(),
-    )?);
     // Remove ask and bid - this transaction has concluded
     delete_ask_order_by_id(deps.storage, &ask_order.id)?;
     delete_bid_order_by_id(deps.storage, &bid_order.id)?;
@@ -177,244 +182,85 @@ fn execute_marker_trade(
 }
 
 fn execute_marker_share_sale(
-    _deps: DepsMut<ProvenanceQuery>,
-    _env: &Env,
-    _ask_order: &AskOrder,
-    _bid_order: &BidOrder,
-    _ask_collateral: &MarkerShareSaleAskCollateral,
-    _bid_collateral: &MarkerShareSaleBidCollateral,
+    deps: DepsMut<ProvenanceQuery>,
+    env: &Env,
+    ask_order: &AskOrder,
+    bid_order: &BidOrder,
+    ask_collateral: &MarkerShareSaleAskCollateral,
+    bid_collateral: &MarkerShareSaleBidCollateral,
 ) -> Result<ExecuteResults, ContractError> {
-    ContractError::unauthorized().to_err()
+    let mut messages = vec![];
+    // Asker gets the quote that the bidder provided from escrow
+    messages.push(CosmosMsg::Bank(BankMsg::Send {
+        to_address: ask_order.owner.to_string(),
+        amount: bid_collateral.quote.to_owned(),
+    }));
+    // Bidder gets their X marker coins withdrawn to them from the contract-controlled marker
+    messages.push(withdraw_coins(
+        &ask_collateral.denom,
+        bid_collateral.share_count.u128(),
+        &ask_collateral.denom,
+        bid_order.owner.to_owned(),
+    )?);
+    let mut terminate_sale = || -> Result<(), ContractError> {
+        // Marker gets released to the asker.  The sale is effectively over.
+        messages.append(&mut release_marker_from_contract(
+            &ask_collateral.denom,
+            &env.contract.address,
+            &ask_collateral.removed_permissions,
+        )?);
+        delete_ask_order_by_id(deps.storage, &ask_order.id)?;
+        ().to_ok()
+    };
+    match ask_collateral.sale_type {
+        ShareSaleType::SingleTransaction { .. } => terminate_sale()?,
+        ShareSaleType::MultipleTransactions {
+            remove_sale_share_threshold,
+        } => {
+            let share_threshold = remove_sale_share_threshold.map(|t| t.u128()).unwrap_or(0);
+            let shares_remaining_after_sale =
+                ask_collateral.remaining_shares.u128() - bid_collateral.share_count.u128();
+            // Validation will prevent this code from being executed if shares_remaining_after_sale
+            // is ever less than share_threshold, so only an equality check is necessary
+            if share_threshold == shares_remaining_after_sale {
+                terminate_sale()?;
+            } else {
+                let mut ask_order = ask_order.to_owned();
+                let mut ask_collateral = ask_collateral.to_owned();
+                ask_collateral.remaining_shares = Uint128::new(shares_remaining_after_sale);
+                ask_order.collateral = AskCollateral::MarkerShareSale(ask_collateral);
+                // Replace the ask order in storage with an updated remaining_shares value
+                insert_ask_order(deps.storage, &ask_order)?;
+            }
+        }
+    }
+    // Regardless of sale type scenario, the bid is always deleted after successful execution
+    delete_bid_order_by_id(deps.storage, &bid_order.id)?;
+    ExecuteResults::new(messages).to_ok()
 }
 
 fn execute_scope_trade(
-    _deps: DepsMut<ProvenanceQuery>,
-    _env: &Env,
-    _ask_order: &AskOrder,
-    _bid_order: &BidOrder,
-    _ask_collateral: &ScopeTradeAskCollateral,
-    _bid_collateral: &ScopeTradeBidCollateral,
+    deps: DepsMut<ProvenanceQuery>,
+    env: &Env,
+    ask_order: &AskOrder,
+    bid_order: &BidOrder,
+    ask_collateral: &ScopeTradeAskCollateral,
+    bid_collateral: &ScopeTradeBidCollateral,
 ) -> Result<ExecuteResults, ContractError> {
-    ContractError::unauthorized().to_err()
+    let mut messages = vec![];
+    // Asker gets the quote that the bidder provided from escrow
+    messages.push(CosmosMsg::Bank(BankMsg::Send {
+        to_address: ask_order.owner.to_string(),
+        amount: ask_collateral.quote.to_owned(),
+    }));
+    let scope = ProvenanceQuerier::new(&deps.querier).get_scope(&bid_collateral.scope_address)?;
+    // Bidder gets the scope transferred to them
+    messages.push(write_scope(
+        replace_scope_owner(scope, bid_order.owner.to_owned()),
+        vec![env.contract.address.to_owned()],
+    )?);
+    ExecuteResults::new(messages).to_ok()
 }
 
 #[cfg(test)]
-mod tests {
-    // #[test]
-    // fn execute_with_valid_data() {
-    //     // setup
-    //     let mut deps = mock_dependencies(&[]);
-    //     if let Err(error) = set_contract_info(
-    //         &mut deps.storage,
-    //         &ContractInfo::new(
-    //             Addr::unchecked("contract_admin"),
-    //             "contract_bind_name".into(),
-    //             "contract_name".into(),
-    //         ),
-    //     ) {
-    //         panic!("unexpected error: {:?}", error)
-    //     }
-    //
-    //     // store valid ask order
-    //     let ask_order = AskOrder {
-    //         base: vec![coin(100, "base_1"), coin(200, "base_2")],
-    //         id: "ask_id".into(),
-    //         owner: Addr::unchecked("asker"),
-    //         quote: coins(200, "quote_1"),
-    //     };
-    //
-    //     let mut ask_storage = get_ask_storage(&mut deps.storage);
-    //     if let Err(error) = ask_storage.save(ask_order.id.as_bytes(), &ask_order) {
-    //         panic!("unexpected error: {:?}", error)
-    //     };
-    //
-    //     // store valid bid order
-    //     let bid_order = BidOrder {
-    //         base: vec![coin(200, "base_2"), coin(100, "base_1")],
-    //         effective_time: Some(Timestamp::default()),
-    //         id: "bid_id".to_string(),
-    //         owner: Addr::unchecked("bidder"),
-    //         quote: coins(200, "quote_1"),
-    //     };
-    //
-    //     let mut bid_storage = get_bid_storage(&mut deps.storage);
-    //     if let Err(error) = bid_storage.save(bid_order.id.as_bytes(), &bid_order) {
-    //         panic!("unexpected error: {:?}", error);
-    //     };
-    //
-    //     // execute on matched ask order and bid order
-    //     let execute_msg = ExecuteMsg::ExecuteMatch {
-    //         ask_id: ask_order.id,
-    //         bid_id: bid_order.id,
-    //     };
-    //
-    //     let execute_response = execute(
-    //         deps.as_mut(),
-    //         mock_env(),
-    //         mock_info("contract_admin", &[]),
-    //         execute_msg,
-    //     );
-    //
-    //     // validate execute response
-    //     match execute_response {
-    //         Err(error) => panic!("unexpected error: {:?}", error),
-    //         Ok(execute_response) => {
-    //             assert_eq!(execute_response.attributes.len(), 1);
-    //             assert_eq!(execute_response.attributes[0], attr("action", "execute"));
-    //             assert_eq!(execute_response.messages.len(), 2);
-    //             assert_eq!(
-    //                 execute_response.messages[0].msg,
-    //                 CosmosMsg::Bank(BankMsg::Send {
-    //                     to_address: ask_order.owner.to_string(),
-    //                     amount: ask_order.quote,
-    //                 })
-    //             );
-    //             assert_eq!(
-    //                 execute_response.messages[1].msg,
-    //                 CosmosMsg::Bank(BankMsg::Send {
-    //                     to_address: bid_order.owner.to_string(),
-    //                     amount: bid_order.base,
-    //                 })
-    //             );
-    //         }
-    //     }
-    // }
-    //
-    // #[test]
-    // fn execute_with_invalid_data() {
-    //     // setup
-    //     let mut deps = mock_dependencies(&[]);
-    //     if let Err(error) = set_contract_info(
-    //         &mut deps.storage,
-    //         &ContractInfo::new(
-    //             Addr::unchecked("contract_admin"),
-    //             "contract_bind_name".into(),
-    //             "contract_name".into(),
-    //         ),
-    //     ) {
-    //         panic!("unexpected error: {:?}", error)
-    //     }
-    //
-    //     // store valid ask order
-    //     let ask_order = AskOrder {
-    //         base: coins(200, "base_1"),
-    //         id: "ask_id".into(),
-    //         owner: Addr::unchecked("asker"),
-    //         quote: coins(100, "quote_1"),
-    //     };
-    //
-    //     let mut ask_storage = get_ask_storage(&mut deps.storage);
-    //     if let Err(error) = ask_storage.save(ask_order.id.as_bytes(), &ask_order) {
-    //         panic!("unexpected error: {:?}", error)
-    //     };
-    //
-    //     // store valid bid order
-    //     let bid_order = BidOrder {
-    //         base: coins(100, "base_1"),
-    //         effective_time: Some(Timestamp::default()),
-    //         id: "bid_id".into(),
-    //         owner: Addr::unchecked("bidder"),
-    //         quote: coins(100, "quote_1"),
-    //     };
-    //
-    //     let mut bid_storage = get_bid_storage(&mut deps.storage);
-    //     if let Err(error) = bid_storage.save(bid_order.id.as_bytes(), &bid_order) {
-    //         panic!("unexpected error: {:?}", error);
-    //     };
-    //
-    //     // execute by non-admin ContractError::Unauthorized
-    //     let execute_msg = ExecuteMsg::ExecuteMatch {
-    //         ask_id: "ask_id".into(),
-    //         bid_id: "bid_id".into(),
-    //     };
-    //
-    //     let execute_response = execute(
-    //         deps.as_mut(),
-    //         mock_env(),
-    //         mock_info("user", &[]),
-    //         execute_msg,
-    //     );
-    //
-    //     match execute_response {
-    //         Err(ContractError::Unauthorized) => {}
-    //         Err(error) => panic!("unexpected error: {:?}", error),
-    //         Ok(_) => panic!("expected error, but execute_response ok"),
-    //     }
-    //
-    //     // execute on mismatched ask order and bid order returns ContractError::AskBidMismatch
-    //     let execute_msg = ExecuteMsg::ExecuteMatch {
-    //         ask_id: "ask_id".into(),
-    //         bid_id: "bid_id".into(),
-    //     };
-    //
-    //     let execute_response = execute(
-    //         deps.as_mut(),
-    //         mock_env(),
-    //         mock_info("contract_admin", &[]),
-    //         execute_msg,
-    //     );
-    //
-    //     match execute_response {
-    //         Err(ContractError::AskBidMismatch) => {}
-    //         Err(error) => panic!("unexpected error: {:?}", error),
-    //         Ok(_) => panic!("expected error, but execute_response ok"),
-    //     }
-    //
-    //     // execute on non-existent ask order and bid order returns ContractError::AskBidMismatch
-    //     let execute_msg = ExecuteMsg::ExecuteMatch {
-    //         ask_id: "no_ask_id".into(),
-    //         bid_id: "bid_id".into(),
-    //     };
-    //
-    //     let execute_response = execute(
-    //         deps.as_mut(),
-    //         mock_env(),
-    //         mock_info("contract_admin", &[]),
-    //         execute_msg,
-    //     );
-    //
-    //     match execute_response {
-    //         Err(ContractError::AskBidMismatch) => {}
-    //         Err(error) => panic!("unexpected error: {:?}", error),
-    //         Ok(_) => panic!("expected error, but execute_response ok"),
-    //     }
-    //
-    //     // execute on non-existent ask order and bid order returns ContractError::AskBidMismatch
-    //     let execute_msg = ExecuteMsg::ExecuteMatch {
-    //         ask_id: "ask_id".into(),
-    //         bid_id: "no_bid_id".into(),
-    //     };
-    //
-    //     let execute_response = execute(
-    //         deps.as_mut(),
-    //         mock_env(),
-    //         mock_info("contract_admin", &[]),
-    //         execute_msg,
-    //     );
-    //
-    //     match execute_response {
-    //         Err(ContractError::AskBidMismatch) => {}
-    //         Err(error) => panic!("unexpected error: {:?}", error),
-    //         Ok(_) => panic!("expected error, but execute_response ok"),
-    //     }
-    //
-    //     // execute with sent_funds returns ContractError::ExecuteWithFunds
-    //     let execute_msg = ExecuteMsg::ExecuteMatch {
-    //         ask_id: "ask_id".into(),
-    //         bid_id: "bid_id".into(),
-    //     };
-    //
-    //     let execute_response = execute(
-    //         deps.as_mut(),
-    //         mock_env(),
-    //         mock_info("contract_admin", &coins(100, "funds")),
-    //         execute_msg,
-    //     );
-    //
-    //     match execute_response {
-    //         Err(ContractError::ExecuteWithFunds) => {}
-    //         Err(error) => panic!("unexpected error: {:?}", error),
-    //         Ok(_) => panic!("expected error, but execute_response ok"),
-    //     }
-    // }
-}
+mod tests {}

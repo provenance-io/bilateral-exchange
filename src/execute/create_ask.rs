@@ -177,6 +177,7 @@ fn create_marker_share_sale_ask_collateral(
                 .into_iter()
                 .filter(|perm| perm.address != env.contract.address)
                 .collect::<Vec<AccessGrant>>(),
+            marker_share_sale.share_sale_type.to_owned(),
         ),
         messages,
     }

@@ -1,7 +1,10 @@
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
-use cosmwasm_std::{coin, Addr, Coin};
-use provwasm_std::{Marker, MarkerAccess, Party, PartyType, Scope};
+use cosmwasm_std::{coin, Addr, Coin, CosmosMsg};
+use provwasm_std::{
+    grant_marker_access, revoke_marker_access, AccessGrant, Marker, MarkerAccess, Party, PartyType,
+    ProvenanceMsg, Scope,
+};
 
 pub fn marker_has_permissions(
     marker: &Marker,
@@ -138,6 +141,32 @@ pub fn replace_scope_owner(mut scope: Scope, new_owner: Addr) -> Scope {
     // but has full access control over the scope
     scope.value_owner_address = new_owner;
     scope
+}
+
+pub fn release_marker_from_contract<S: Into<String>>(
+    marker_denom: S,
+    contract_address: &Addr,
+    permissions_to_grant: &[AccessGrant],
+) -> Result<Vec<CosmosMsg<ProvenanceMsg>>, ContractError> {
+    let marker_denom = marker_denom.into();
+    let mut messages = vec![];
+    // Restore all permissions that the marker had before it was transferred to the
+    // contract.
+    for permission in permissions_to_grant {
+        messages.push(grant_marker_access(
+            &marker_denom,
+            permission.address.to_owned(),
+            permission.permissions.to_owned(),
+        )?);
+    }
+    // Remove the contract's ownership of the marker now that it is no longer available for
+    // sale / trade.  This message HAS TO COME LAST because the contract will lose its permission
+    // to restore the originally-revoked permissions otherwise.
+    messages.push(revoke_marker_access(
+        &marker_denom,
+        contract_address.to_owned(),
+    )?);
+    messages.to_ok()
 }
 
 #[cfg(test)]

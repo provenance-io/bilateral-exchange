@@ -9,3 +9,4 @@ pub mod error;
 pub mod msg;
 pub mod request_descriptor;
 pub mod search;
+pub mod share_sale_type;
