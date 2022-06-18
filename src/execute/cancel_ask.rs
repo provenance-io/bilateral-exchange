@@ -4,11 +4,8 @@ use crate::types::ask_collateral::AskCollateral;
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
 use crate::util::provenance_utilities::{release_marker_from_contract, replace_scope_owner};
-use cosmwasm_std::{to_binary, Addr, BankMsg, CosmosMsg, DepsMut, Env, MessageInfo, Response};
-use provwasm_std::{
-    grant_marker_access, revoke_marker_access, write_scope, AccessGrant, ProvenanceMsg,
-    ProvenanceQuerier, ProvenanceQuery,
-};
+use cosmwasm_std::{to_binary, BankMsg, CosmosMsg, DepsMut, Env, MessageInfo, Response};
+use provwasm_std::{write_scope, ProvenanceMsg, ProvenanceQuerier, ProvenanceQuery};
 
 // cancel ask entrypoint
 pub fn cancel_ask(

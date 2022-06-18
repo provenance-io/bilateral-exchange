@@ -37,7 +37,7 @@ pub fn bid_orders<'a>() -> IndexedMap<'a, &'a [u8], BidOrder, BidOrderIndices<'a
             NAMESPACE_OWNER_IDX,
         ),
         type_index: MultiIndex::new(
-            |bid: &BidOrder| bid.bid_type.clone().to_string(),
+            |bid: &BidOrder| bid.bid_type.get_name().to_string(),
             NAMESPACE_BID_PK,
             NAMESPACE_TYPE_IDX,
         ),

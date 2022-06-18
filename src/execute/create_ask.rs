@@ -6,7 +6,7 @@ use crate::types::error::ContractError;
 use crate::types::request_descriptor::RequestDescriptor;
 use crate::util::extensions::ResultExtensions;
 use crate::util::provenance_utilities::{check_scope_owners, get_single_marker_coin_holding};
-use crate::validation::marker_trade_validation::validate_marker_for_ask;
+use crate::validation::marker_exchange_validation::validate_marker_for_ask;
 use cosmwasm_std::{to_binary, CosmosMsg, DepsMut, Env, MessageInfo, Response};
 use provwasm_std::{
     revoke_marker_access, AccessGrant, MarkerAccess, ProvenanceMsg, ProvenanceQuerier,
@@ -214,8 +214,8 @@ mod tests {
     use crate::contract::execute;
     use crate::storage::ask_order_storage::get_ask_order_by_id;
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
-    use crate::types::constants::ASK_TYPE_COIN_TRADE;
     use crate::types::msg::ExecuteMsg;
+    use crate::types::request_type::RequestType;
     use cosmwasm_std::testing::{mock_env, mock_info};
     use cosmwasm_std::{attr, coins, Addr};
     use provwasm_mocks::mock_dependencies;
@@ -273,7 +273,7 @@ mod tests {
                         stored_order,
                         AskOrder {
                             id,
-                            ask_type: ASK_TYPE_COIN_TRADE.to_string(),
+                            ask_type: RequestType::CoinTrade,
                             owner: asker_info.sender,
                             collateral: AskCollateral::coin_trade(&asker_info.funds, &quote),
                             descriptor: None,

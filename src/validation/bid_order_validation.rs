@@ -1,11 +1,9 @@
 use crate::types::bid_collateral::BidCollateral;
 use crate::types::bid_order::BidOrder;
-use crate::types::constants::{
-    BID_TYPE_COIN_TRADE, BID_TYPE_MARKER_SHARE_SALE, BID_TYPE_MARKER_TRADE, BID_TYPE_SCOPE_TRADE,
-};
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::Coin;
+use crate::types::request_type::RequestType;
 
 pub fn validate_bid_order(bid_order: &BidOrder) -> Result<(), ContractError> {
     let mut invalid_field_messages: Vec<String> = vec![];
@@ -15,46 +13,38 @@ pub fn validate_bid_order(bid_order: &BidOrder) -> Result<(), ContractError> {
     if bid_order.owner.as_str().is_empty() {
         invalid_field_messages.push("owner for BidOrder must not be empty".to_string());
     }
-    match bid_order.bid_type.as_str() {
-        BID_TYPE_COIN_TRADE => {
+    match bid_order.bid_type {
+        RequestType::CoinTrade => {
             if !matches!(bid_order.collateral, BidCollateral::CoinTrade(_)) {
                 invalid_field_messages.push(format!(
                     "bid type [{}] for BidOrder [{}] is invalid. type requires collateral of type BidCollateral::CoinTrade",
-                    bid_order.bid_type, bid_order.id,
+                    bid_order.bid_type.get_name(), bid_order.id,
                 ));
             }
         }
-        BID_TYPE_MARKER_TRADE => {
+        RequestType::MarkerTrade => {
             if !matches!(bid_order.collateral, BidCollateral::MarkerTrade(_)) {
                 invalid_field_messages.push(format!(
                    "bid type [{}] for BidOrder [{}] is invalid. type requires collateral of type BidCollateral::MarkerTrade",
-                   bid_order.bid_type, bid_order.id,
+                   bid_order.bid_type.get_name(), bid_order.id,
                ));
             }
         }
-        BID_TYPE_MARKER_SHARE_SALE => {
+        RequestType::MarkerShareSale => {
             if !matches!(bid_order.collateral, BidCollateral::MarkerShareSale(_)) {
                 invalid_field_messages.push(format!(
                     "bid type [{}] for BidOrder [{}] is invalid. type requires collateral of type BidCollateral::MarkerShareSale",
-                    bid_order.bid_type, bid_order.id,
+                    bid_order.bid_type.get_name(), bid_order.id,
                 ))
             }
         }
-        BID_TYPE_SCOPE_TRADE => {
+        RequestType::ScopeTrade => {
             if !matches!(bid_order.collateral, BidCollateral::ScopeTrade(_)) {
                 invalid_field_messages.push(format!(
                     "bid type [{}] for BidOrder [{}] is invalid. type requires collateral of type BidCollateral::ScopeTrade",
-                    bid_order.bid_type, bid_order.id,
+                    bid_order.bid_type.get_name(), bid_order.id,
                 ))
             }
-        }
-        _ => {
-            invalid_field_messages.push(format!(
-                "bid type [{}] for BidOrder [{}] is invalid. Must be one of: {:?}",
-                bid_order.bid_type,
-                bid_order.id,
-                vec![BID_TYPE_COIN_TRADE, BID_TYPE_MARKER_TRADE],
-            ));
         }
     };
     let validate_coin = |coin: &Coin, coin_type: &str| {

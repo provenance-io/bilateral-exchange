@@ -43,10 +43,12 @@ fn get_match_validation(
         &ask.id, &bid.id
     );
 
-    if ask.get_matching_bid_type() != bid.bid_type {
+    if ask.ask_type != bid.bid_type {
         validation_messages.push(format!(
             "{} Ask type [{}] does not match bid type [{}]",
-            &identifiers, &ask.ask_type, &bid.bid_type,
+            &identifiers,
+            &ask.ask_type.get_name(),
+            &bid.bid_type.get_name(),
         ));
     }
 
@@ -377,11 +379,9 @@ mod tests {
     use crate::types::ask_order::AskOrder;
     use crate::types::bid_collateral::BidCollateral;
     use crate::types::bid_order::BidOrder;
-    use crate::types::constants::{
-        ASK_TYPE_COIN_TRADE, ASK_TYPE_MARKER_TRADE, BID_TYPE_COIN_TRADE, BID_TYPE_MARKER_TRADE,
-    };
     use crate::types::error::ContractError;
     use crate::types::request_descriptor::RequestDescriptor;
+    use crate::types::request_type::RequestType;
     use crate::validation::ask_order_validation::validate_ask_order;
     use crate::validation::bid_order_validation::validate_bid_order;
     use crate::validation::execute_match_validation::validate_match;
@@ -506,14 +506,14 @@ mod tests {
             &deps.as_mut(),
             &AskOrder {
                 id: "ask_id".to_string(),
-                ask_type: ASK_TYPE_COIN_TRADE.to_string(),
+                ask_type: RequestType::CoinTrade,
                 owner: Addr::unchecked("ask_addr"),
                 collateral: AskCollateral::coin_trade(&[], &[]),
                 descriptor: None,
             },
             &BidOrder {
                 id: "bid_id".to_string(),
-                bid_type: BID_TYPE_MARKER_TRADE.to_string(),
+                bid_type: RequestType::MarkerTrade,
                 owner: Addr::unchecked("bid_addr"),
                 collateral: BidCollateral::coin_trade(&[], &[]),
                 descriptor: None,
@@ -525,14 +525,14 @@ mod tests {
             &deps.as_mut(),
             &AskOrder {
                 id: "ask_id".to_string(),
-                ask_type: ASK_TYPE_MARKER_TRADE.to_string(),
+                ask_type: RequestType::MarkerTrade,
                 owner: Addr::unchecked("ask_addr"),
                 collateral: AskCollateral::coin_trade(&[], &[]),
                 descriptor: None,
             },
             &BidOrder {
                 id: "bid_id".to_string(),
-                bid_type: BID_TYPE_COIN_TRADE.to_string(),
+                bid_type: RequestType::CoinTrade,
                 owner: Addr::unchecked("bid_addr"),
                 collateral: BidCollateral::coin_trade(&[], &[]),
                 descriptor: None,

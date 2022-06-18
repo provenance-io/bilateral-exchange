@@ -1,5 +1,5 @@
 use crate::storage::ask_order_storage::{
-    delete_ask_order_by_id, get_ask_order_by_id, insert_ask_order,
+    delete_ask_order_by_id, get_ask_order_by_id, update_ask_order,
 };
 use crate::storage::bid_order_storage::{delete_bid_order_by_id, get_bid_order_by_id};
 use crate::storage::contract_info::get_contract_info;
@@ -20,8 +20,7 @@ use crate::util::provenance_utilities::{release_marker_from_contract, replace_sc
 use crate::validation::execute_match_validation::validate_match;
 use cosmwasm_std::{BankMsg, CosmosMsg, DepsMut, Env, MessageInfo, Response, Uint128};
 use provwasm_std::{
-    revoke_marker_access, withdraw_coins, write_scope, ProvenanceMsg, ProvenanceQuerier,
-    ProvenanceQuery,
+    withdraw_coins, write_scope, ProvenanceMsg, ProvenanceQuerier, ProvenanceQuery,
 };
 
 // match and execute an ask and bid order
@@ -230,7 +229,7 @@ fn execute_marker_share_sale(
                 ask_collateral.remaining_shares = Uint128::new(shares_remaining_after_sale);
                 ask_order.collateral = AskCollateral::MarkerShareSale(ask_collateral);
                 // Replace the ask order in storage with an updated remaining_shares value
-                insert_ask_order(deps.storage, &ask_order)?;
+                update_ask_order(deps.storage, &ask_order)?;
             }
         }
     }

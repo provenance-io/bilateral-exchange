@@ -143,7 +143,7 @@ fn create_marker_share_sale_collateral(
     BidCollateral::marker_share_sale(
         marker.address,
         &marker_share_sale.denom,
-        marker_shares_available,
+        marker_share_sale.share_count.u128(),
         &info.funds,
     )
     .to_ok()
@@ -180,8 +180,8 @@ mod tests {
     use super::*;
     use crate::contract::execute;
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
-    use crate::types::constants::BID_TYPE_COIN_TRADE;
     use crate::types::msg::ExecuteMsg;
+    use crate::types::request_type::RequestType;
     use cosmwasm_std::testing::{mock_env, mock_info};
     use cosmwasm_std::{attr, coins, Addr};
     use provwasm_mocks::mock_dependencies;
@@ -239,7 +239,7 @@ mod tests {
                         stored_order,
                         BidOrder {
                             id,
-                            bid_type: BID_TYPE_COIN_TRADE.to_string(),
+                            bid_type: RequestType::CoinTrade,
                             owner: bidder_info.sender,
                             collateral: BidCollateral::coin_trade(&base, &bidder_info.funds),
                             descriptor: None,

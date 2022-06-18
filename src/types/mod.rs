@@ -8,5 +8,6 @@ pub mod constants;
 pub mod error;
 pub mod msg;
 pub mod request_descriptor;
+pub mod request_type;
 pub mod search;
 pub mod share_sale_type;

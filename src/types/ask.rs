@@ -1,6 +1,3 @@
-use crate::types::constants::{
-    ASK_TYPE_COIN_TRADE, ASK_TYPE_MARKER_SHARE_SALE, ASK_TYPE_MARKER_TRADE, ASK_TYPE_SCOPE_TRADE,
-};
 use crate::types::share_sale_type::ShareSaleType;
 use cosmwasm_std::Coin;
 use schemars::JsonSchema;
@@ -60,15 +57,6 @@ impl Ask {
 
     pub fn get_storage_key(&self) -> &[u8] {
         self.get_id().as_bytes()
-    }
-
-    pub fn get_ask_type(&self) -> &str {
-        match self {
-            Self::CoinTrade(_) => ASK_TYPE_COIN_TRADE,
-            Self::MarkerTrade(_) => ASK_TYPE_MARKER_TRADE,
-            Self::MarkerShareSale(_) => ASK_TYPE_MARKER_SHARE_SALE,
-            Self::ScopeTrade(_) => ASK_TYPE_SCOPE_TRADE,
-        }
     }
 }
 

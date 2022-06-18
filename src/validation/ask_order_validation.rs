@@ -1,11 +1,9 @@
 use crate::types::ask_collateral::AskCollateral;
 use crate::types::ask_order::AskOrder;
-use crate::types::constants::{
-    ASK_TYPE_COIN_TRADE, ASK_TYPE_MARKER_SHARE_SALE, ASK_TYPE_MARKER_TRADE, ASK_TYPE_SCOPE_TRADE,
-};
 use crate::types::error::ContractError;
 use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::Coin;
+use crate::types::request_type::RequestType;
 
 pub fn validate_ask_order(ask_order: &AskOrder) -> Result<(), ContractError> {
     let mut invalid_field_messages: Vec<String> = vec![];
@@ -15,46 +13,38 @@ pub fn validate_ask_order(ask_order: &AskOrder) -> Result<(), ContractError> {
     if ask_order.owner.as_str().is_empty() {
         invalid_field_messages.push("owner for AskOrder must not be empty".to_string());
     }
-    match ask_order.ask_type.as_str() {
-        ASK_TYPE_COIN_TRADE => {
+    match ask_order.ask_type {
+        RequestType::CoinTrade => {
             if !matches!(ask_order.collateral, AskCollateral::CoinTrade(_)) {
                 invalid_field_messages.push(format!(
                     "ask type [{}] for AskOrder [{}] is invalid. type requires collateral type of AskCollateral::CoinTrade",
-                    ask_order.ask_type, ask_order.id,
+                    ask_order.ask_type.get_name(), ask_order.id,
                 ));
             }
         }
-        ASK_TYPE_MARKER_TRADE => {
+        RequestType::MarkerTrade => {
             if !matches!(ask_order.collateral, AskCollateral::MarkerTrade(_)) {
                 invalid_field_messages.push(format!(
                     "ask type [{}] for AskOrder [{}] is invalid. type requires collateral type of AskCollateral::MarkerTrade",
-                    ask_order.ask_type, ask_order.id,
+                    ask_order.ask_type.get_name(), ask_order.id,
                 ));
             }
         }
-        ASK_TYPE_MARKER_SHARE_SALE => {
+        RequestType::MarkerShareSale => {
             if !matches!(ask_order.collateral, AskCollateral::MarkerShareSale(_)) {
                 invalid_field_messages.push(format!(
                     "ask type [{}] for AskOrder [{}] is invalid. type requires collateral of type AskCollateral::MarkerShareSale",
-                    ask_order.ask_type, ask_order.id,
+                    ask_order.ask_type.get_name(), ask_order.id,
                 ))
             }
         }
-        ASK_TYPE_SCOPE_TRADE => {
+        RequestType::ScopeTrade => {
             if !matches!(ask_order.collateral, AskCollateral::ScopeTrade(_)) {
                 invalid_field_messages.push(format!(
                     "ask type [{}] for AskOrder [{}] is invalid. type requires collateral of type AskCollateral::ScopeTrade",
-                    ask_order.ask_type, ask_order.id,
+                    ask_order.ask_type.get_name(), ask_order.id,
                 ))
             }
-        }
-        _ => {
-            invalid_field_messages.push(format!(
-                "ask type [{}] for AskOrder [{}] is invalid. Must be one of: {:?}",
-                ask_order.ask_type,
-                ask_order.id,
-                vec![ASK_TYPE_COIN_TRADE, ASK_TYPE_MARKER_TRADE],
-            ));
         }
     };
     let validate_coin = |coin: &Coin, coin_type: &str| {

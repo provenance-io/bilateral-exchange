@@ -18,10 +18,10 @@ mod tests {
     use crate::types::ask_collateral::AskCollateral;
     use crate::types::ask_order::AskOrder;
     use crate::types::constants::{
-        ASK_TYPE_COIN_TRADE, ASK_TYPE_MARKER_TRADE, DEFAULT_SEARCH_PAGE_NUMBER,
-        DEFAULT_SEARCH_PAGE_SIZE, MAX_SEARCH_PAGE_SIZE,
+        DEFAULT_SEARCH_PAGE_NUMBER, DEFAULT_SEARCH_PAGE_SIZE, MAX_SEARCH_PAGE_SIZE,
     };
     use crate::types::request_descriptor::RequestDescriptor;
+    use crate::types::request_type::RequestType;
     use crate::types::search::{Search, SearchResult};
     use cosmwasm_std::{from_binary, Addr, Deps, Timestamp};
     use provwasm_mocks::mock_dependencies;
@@ -222,7 +222,7 @@ mod tests {
         }
         let marker_page = search(
             deps.as_ref(),
-            Search::value_type(ASK_TYPE_MARKER_TRADE, None, None),
+            Search::value_type(RequestType::MarkerTrade.get_name(), None, None),
         );
         assert!(
             marker_page.results.is_empty(),
@@ -280,7 +280,7 @@ mod tests {
         }
         let coin_page = search(
             deps.as_ref(),
-            Search::value_type(ASK_TYPE_COIN_TRADE, Some(15), None),
+            Search::value_type(RequestType::CoinTrade.get_name(), Some(15), None),
         );
         assert_eq!(
             13,
@@ -291,12 +291,12 @@ mod tests {
             coin_page
                 .results
                 .iter()
-                .all(|ask| ask.ask_type == ASK_TYPE_COIN_TRADE),
+                .all(|ask| ask.ask_type == RequestType::CoinTrade),
             "all returned results should be coin results",
         );
         let marker_page = search(
             deps.as_ref(),
-            Search::value_type(ASK_TYPE_MARKER_TRADE, Some(15), None),
+            Search::value_type(RequestType::MarkerTrade.get_name(), Some(15), None),
         );
         assert_eq!(
             12,
@@ -307,7 +307,7 @@ mod tests {
             marker_page
                 .results
                 .iter()
-                .all(|ask| ask.ask_type == ASK_TYPE_MARKER_TRADE),
+                .all(|ask| ask.ask_type == RequestType::MarkerTrade),
             "all returned results should be marker results",
         );
     }

@@ -37,7 +37,7 @@ pub fn ask_orders<'a>() -> IndexedMap<'a, &'a [u8], AskOrder, AskOrderIndices<'a
             NAMESPACE_OWNER_IDX,
         ),
         type_index: MultiIndex::new(
-            |ask: &AskOrder| ask.ask_type.clone(),
+            |ask: &AskOrder| ask.ask_type.get_name().to_string(),
             NAMESPACE_ASK_PK,
             NAMESPACE_TYPE_IDX,
         ),
@@ -60,7 +60,29 @@ pub fn insert_ask_order(
         }
         .to_err();
     }
-    state
+    store_ask_order(storage, ask_order)
+}
+
+pub fn update_ask_order(
+    storage: &mut dyn Storage,
+    ask_order: &AskOrder,
+) -> Result<(), ContractError> {
+    let state = ask_orders();
+    if let Ok(_) = state.load(storage, ask_order.get_pk()) {
+        store_ask_order(storage, ask_order)
+    } else {
+        ContractError::StorageError {
+            message: format!(
+                "attempted to replace ask with id [{}] in storage, but no ask with that id existed",
+                &ask_order.id
+            ),
+        }
+        .to_err()
+    }
+}
+
+fn store_ask_order(storage: &mut dyn Storage, ask_order: &AskOrder) -> Result<(), ContractError> {
+    ask_orders()
         .replace(storage, ask_order.get_pk(), Some(ask_order), None)?
         .to_ok()
 }

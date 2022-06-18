@@ -1,6 +1,3 @@
-use crate::types::constants::{
-    BID_TYPE_COIN_TRADE, BID_TYPE_MARKER_SHARE_SALE, BID_TYPE_MARKER_TRADE, BID_TYPE_SCOPE_TRADE,
-};
 use cosmwasm_std::{Coin, Uint128};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -41,15 +38,6 @@ impl Bid {
 
     pub fn get_storage_key(&self) -> &[u8] {
         self.get_id().as_bytes()
-    }
-
-    pub fn get_bid_type(&self) -> &str {
-        match self {
-            Self::CoinTrade(_) => BID_TYPE_COIN_TRADE,
-            Self::MarkerTrade(_) => BID_TYPE_MARKER_TRADE,
-            Self::MarkerShareSale(_) => BID_TYPE_MARKER_SHARE_SALE,
-            Self::ScopeTrade(_) => BID_TYPE_SCOPE_TRADE,
-        }
     }
 }
 
