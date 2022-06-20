@@ -4,6 +4,9 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.databind.PropertyNamingStrategies
 import com.fasterxml.jackson.databind.annotation.JsonNaming
 
+/**
+ * See CreateAsk for a JSON payload that includes this object's use.
+ */
 @JsonTypeInfo(use = JsonTypeInfo.Id.DEDUCTION)
 sealed interface ShareSaleType {
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)

@@ -10,11 +10,12 @@ import io.provenance.bilateral.interfaces.ContractQueryMsg
 import io.provenance.bilateral.models.AskOrder
 import io.provenance.bilateral.models.BidOrder
 import io.provenance.bilateral.models.ContractInfo
-import io.provenance.bilateral.query.ContractSearchRequest
 import io.provenance.bilateral.query.ContractSearchResult
 import io.provenance.bilateral.query.GetAsk
 import io.provenance.bilateral.query.GetBid
 import io.provenance.bilateral.query.GetContractInfo
+import io.provenance.bilateral.query.SearchAsks
+import io.provenance.bilateral.query.SearchBids
 import io.provenance.client.grpc.BaseReqSigner
 import io.provenance.client.grpc.PbClient
 import io.provenance.client.grpc.Signer
@@ -34,9 +35,9 @@ class BilateralContractClient(
 
     fun getBid(id: String): BidOrder = queryContract(GetBid.new(id))
 
-    fun searchAsks(search: ContractSearchRequest): ContractSearchResult<AskOrder> = queryContract(search)
+    fun searchAsks(searchAsks: SearchAsks): ContractSearchResult<AskOrder> = queryContract(searchAsks)
 
-    fun searchBids(search: ContractSearchRequest): ContractSearchResult<BidOrder> = queryContract(search)
+    fun searchBids(searchBids: SearchBids): ContractSearchResult<BidOrder> = queryContract(searchBids)
 
     fun getContractInfo(): ContractInfo = queryContract(GetContractInfo.new())
 
