@@ -1,6 +1,11 @@
 use crate::test::type_helpers::decimal;
+use cosmwasm_std::testing::MOCK_CONTRACT_ADDR;
 use cosmwasm_std::{coins, Addr, Coin, Decimal};
 use provwasm_std::{AccessGrant, Marker, MarkerAccess, MarkerStatus, MarkerType};
+
+pub const DEFAULT_MARKER_ADDRESS: &str = "marker_address";
+pub const DEFAULT_MARKER_HOLDINGS: u128 = 100;
+pub const DEFAULT_MARKER_DENOM: &str = "markerdenom";
 
 pub struct MockMarker {
     pub address: Addr,
@@ -18,13 +23,13 @@ pub struct MockMarker {
 impl Default for MockMarker {
     fn default() -> Self {
         Self {
-            address: Addr::unchecked("marker_address"),
-            coins: coins(100, "defaultdenom"),
+            address: Addr::unchecked(DEFAULT_MARKER_ADDRESS),
+            coins: coins(DEFAULT_MARKER_HOLDINGS, DEFAULT_MARKER_DENOM),
             account_number: 50,
             sequence: 0,
             manager: "".to_string(),
             permissions: vec![AccessGrant {
-                address: Addr::unchecked("marker_admin"),
+                address: Addr::unchecked(MOCK_CONTRACT_ADDR),
                 permissions: vec![
                     MarkerAccess::Admin,
                     MarkerAccess::Burn,
@@ -35,8 +40,8 @@ impl Default for MockMarker {
                 ],
             }],
             status: MarkerStatus::Active,
-            denom: "defaultdenom".to_string(),
-            total_supply: decimal(100),
+            denom: DEFAULT_MARKER_DENOM.to_string(),
+            total_supply: decimal(DEFAULT_MARKER_HOLDINGS),
             marker_type: MarkerType::Coin,
             supply_fixed: true,
         }
@@ -45,6 +50,30 @@ impl Default for MockMarker {
 impl MockMarker {
     pub fn new_marker() -> Marker {
         Self::default().to_marker()
+    }
+
+    pub fn new_owned_marker<S: Into<String>>(owner_address: S) -> Marker {
+        Self {
+            permissions: vec![
+                AccessGrant {
+                    address: Addr::unchecked(owner_address),
+                    permissions: vec![
+                        MarkerAccess::Admin,
+                        MarkerAccess::Burn,
+                        MarkerAccess::Delete,
+                        MarkerAccess::Deposit,
+                        MarkerAccess::Mint,
+                        MarkerAccess::Withdraw,
+                    ],
+                },
+                AccessGrant {
+                    address: Addr::unchecked(MOCK_CONTRACT_ADDR),
+                    permissions: vec![MarkerAccess::Admin, MarkerAccess::Withdraw],
+                },
+            ],
+            ..Self::default()
+        }
+        .to_marker()
     }
 
     pub fn to_marker(self) -> Marker {

@@ -75,28 +75,22 @@ pub fn cancel_ask(
 mod tests {
     use super::*;
     use crate::contract::execute;
+    use crate::execute::create_ask::create_ask;
     use crate::storage::ask_order_storage::insert_ask_order;
-    use crate::storage::contract_info::{set_contract_info, ContractInfo};
+    use crate::test::mock_instantiate::default_instantiate;
+    use crate::test::mock_marker::{MockMarker, DEFAULT_MARKER_DENOM};
     use crate::types::ask::Ask;
     use crate::types::ask_order::AskOrder;
     use crate::types::msg::ExecuteMsg;
-    use cosmwasm_std::testing::{mock_env, mock_info};
-    use cosmwasm_std::{attr, coins, Addr, CosmosMsg};
+    use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
+    use cosmwasm_std::{attr, coins, from_binary, Addr, CosmosMsg};
     use provwasm_mocks::mock_dependencies;
+    use provwasm_std::{MarkerMsgParams, ProvenanceMsgParams};
 
     #[test]
     fn cancel_coin_ask_with_valid_data() {
         let mut deps = mock_dependencies(&[]);
-        if let Err(error) = set_contract_info(
-            &mut deps.storage,
-            &ContractInfo::new(
-                Addr::unchecked("contract_admin"),
-                "contract_bind_name".into(),
-                "contract_name".into(),
-            ),
-        ) {
-            panic!("unexpected error: {:?}", error)
-        }
+        default_instantiate(&mut deps.storage);
 
         // create ask data
         let asker_info = mock_info("asker", &coins(200, "base_1"));
@@ -153,16 +147,7 @@ mod tests {
     #[test]
     fn cancel_coin_ask_with_invalid_data() {
         let mut deps = mock_dependencies(&[]);
-        if let Err(error) = set_contract_info(
-            &mut deps.storage,
-            &ContractInfo::new(
-                Addr::unchecked("contract_admin"),
-                "contract_bind_name".into(),
-                "contract_name".into(),
-            ),
-        ) {
-            panic!("unexpected error: {:?}", error)
-        }
+        default_instantiate(&mut deps.storage);
 
         let asker_info = mock_info("asker", &[]);
 
@@ -260,4 +245,96 @@ mod tests {
             ),
         }
     }
+
+    #[test]
+    fn test_cancel_marker_trade_ask_with_valid_data() {
+        let mut deps = mock_dependencies(&[]);
+        default_instantiate(&mut deps.storage);
+        let ask_id = "ask_id".to_string();
+        deps.querier
+            .with_markers(vec![MockMarker::new_owned_marker("asker")]);
+        create_ask(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("asker", &[]),
+            Ask::new_marker_trade(&ask_id, DEFAULT_MARKER_DENOM, &coins(150, "nhash")),
+            None,
+        )
+        .expect("marker trade ask should be created without issue");
+        let ask_order = get_ask_order_by_id(&mut deps.storage, &ask_id)
+            .expect("an ask order should be available in storage");
+        let response = cancel_ask(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("asker", &[]),
+            ask_id.to_owned(),
+        )
+        .expect("cancel ask should succeed");
+        assert_eq!(
+            2,
+            response.messages.len(),
+            "two message should be added to the response to properly rewrite the marker to its original owner permissions",
+        );
+        response.messages.iter().for_each(|msg| match &msg.msg {
+            CosmosMsg::Custom(ProvenanceMsg {
+                                  params: ProvenanceMsgParams::Marker(MarkerMsgParams::GrantMarkerAccess {
+                                                                          denom,
+                                                                          address,
+                                                                          ..
+                                                                      }),
+                                  ..
+                              }) => {
+                assert_eq!(
+                    DEFAULT_MARKER_DENOM,
+                    denom,
+                    "the correct marker denom should be referenced in the grant access request",
+                );
+                assert_eq!(
+                    "asker",
+                    address.as_str(),
+                    "the asker account should be granted its marker access again",
+                );
+            },
+            CosmosMsg::Custom(ProvenanceMsg {
+                                  params: ProvenanceMsgParams::Marker(MarkerMsgParams::RevokeMarkerAccess {
+                                                                          denom,
+                                                                          address,
+                                                                      }),
+                                  ..
+                              }) => {
+                assert_eq!(
+                    DEFAULT_MARKER_DENOM,
+                    denom,
+                    "the correct marker denom should be referenced in the revoke access request",
+                );
+                assert_eq!(
+                    MOCK_CONTRACT_ADDR,
+                    address.as_str(),
+                    "the contract address should be used to revoke its marker access",
+                );
+            },
+            msg => panic!("unexpected message produced when cancelling a marker ask: {:?}", msg),
+        });
+        assert_eq!(
+            1,
+            response.attributes.len(),
+            "the response should have a single attribute",
+        );
+        let attribute = response.attributes.first().unwrap();
+        assert_eq!("action", attribute.key);
+        assert_eq!("cancel_ask", attribute.value);
+        let response_data_ask_order = from_binary::<AskOrder>(
+            &response.data.expect("response data should be set"),
+        )
+        .expect("the response data should be able to be converted from binary to an AskOrder");
+        assert_eq!(
+            ask_order, response_data_ask_order,
+            "the response data's AskOrder should equate to the cancelled ask order",
+        );
+        get_ask_order_by_id(&deps.storage, &ask_id)
+            .expect_err("the ask should no longer be available in storage after a cancellation");
+    }
+
+    #[test]
+    fn test_cancel_marker_trade_ask_with_invalid_data() {}
 }

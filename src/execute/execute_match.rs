@@ -258,6 +258,9 @@ fn execute_scope_trade(
         replace_scope_owner(scope, bid_order.owner.to_owned()),
         vec![env.contract.address.to_owned()],
     )?);
+    // Remove the ask and bid orders now that the trade has been finalized
+    delete_ask_order_by_id(deps.storage, &ask_order.id)?;
+    delete_bid_order_by_id(deps.storage, &bid_order.id)?;
     ExecuteResults::new(messages).to_ok()
 }
 

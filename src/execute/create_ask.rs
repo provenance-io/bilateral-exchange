@@ -15,8 +15,8 @@ use provwasm_std::{
 
 pub fn create_ask(
     deps: DepsMut<ProvenanceQuery>,
-    info: MessageInfo,
     env: Env,
+    info: MessageInfo,
     ask: Ask,
     descriptor: Option<RequestDescriptor>,
 ) -> Result<Response<ProvenanceMsg>, ContractError> {

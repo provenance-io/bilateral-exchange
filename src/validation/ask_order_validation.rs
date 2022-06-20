@@ -1,9 +1,9 @@
 use crate::types::ask_collateral::AskCollateral;
 use crate::types::ask_order::AskOrder;
 use crate::types::error::ContractError;
+use crate::types::request_type::RequestType;
 use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::Coin;
-use crate::types::request_type::RequestType;
 
 pub fn validate_ask_order(ask_order: &AskOrder) -> Result<(), ContractError> {
     let mut invalid_field_messages: Vec<String> = vec![];

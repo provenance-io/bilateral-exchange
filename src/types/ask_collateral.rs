@@ -1,8 +1,8 @@
+use crate::types::share_sale_type::ShareSaleType;
 use cosmwasm_std::{Addr, Coin, Uint128};
 use provwasm_std::AccessGrant;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use crate::types::share_sale_type::ShareSaleType;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]

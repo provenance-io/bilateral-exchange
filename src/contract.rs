@@ -34,7 +34,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response<ProvenanceMsg>, ContractError> {
     match msg {
-        ExecuteMsg::CreateAsk { ask, descriptor } => create_ask(deps, info, env, ask, descriptor),
+        ExecuteMsg::CreateAsk { ask, descriptor } => create_ask(deps, env, info, ask, descriptor),
         ExecuteMsg::CreateBid { bid, descriptor } => create_bid(deps, info, bid, descriptor),
         ExecuteMsg::CancelAsk { id } => cancel_ask(deps, env, info, id),
         ExecuteMsg::CancelBid { id } => cancel_bid(deps, env, info, id),

@@ -1,9 +1,9 @@
 use crate::types::bid_collateral::BidCollateral;
 use crate::types::bid_order::BidOrder;
 use crate::types::error::ContractError;
+use crate::types::request_type::RequestType;
 use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::Coin;
-use crate::types::request_type::RequestType;
 
 pub fn validate_bid_order(bid_order: &BidOrder) -> Result<(), ContractError> {
     let mut invalid_field_messages: Vec<String> = vec![];
