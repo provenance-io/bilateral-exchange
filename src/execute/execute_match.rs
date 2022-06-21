@@ -159,7 +159,7 @@ fn execute_marker_trade(
         messages.append(&mut release_marker_from_contract(
             &ask_collateral.denom,
             &env.contract.address,
-            &[bidder_permissions.to_owned()],
+            &[bidder_permissions],
         )?);
     } else {
         return ContractError::validation_error(&[
@@ -188,19 +188,20 @@ fn execute_marker_share_sale(
     ask_collateral: &MarkerShareSaleAskCollateral,
     bid_collateral: &MarkerShareSaleBidCollateral,
 ) -> Result<ExecuteResults, ContractError> {
-    let mut messages = vec![];
     // Asker gets the quote that the bidder provided from escrow
-    messages.push(CosmosMsg::Bank(BankMsg::Send {
-        to_address: ask_order.owner.to_string(),
-        amount: bid_collateral.quote.to_owned(),
-    }));
     // Bidder gets their X marker coins withdrawn to them from the contract-controlled marker
-    messages.push(withdraw_coins(
-        &ask_collateral.denom,
-        bid_collateral.share_count.u128(),
-        &ask_collateral.denom,
-        bid_order.owner.to_owned(),
-    )?);
+    let mut messages = vec![
+        CosmosMsg::Bank(BankMsg::Send {
+            to_address: ask_order.owner.to_string(),
+            amount: bid_collateral.quote.to_owned(),
+        }),
+        withdraw_coins(
+            &ask_collateral.denom,
+            bid_collateral.share_count.u128(),
+            &ask_collateral.denom,
+            bid_order.owner.to_owned(),
+        )?,
+    ];
     let mut terminate_sale = || -> Result<(), ContractError> {
         // Marker gets released to the asker.  The sale is effectively over.
         messages.append(&mut release_marker_from_contract(
@@ -246,12 +247,11 @@ fn execute_scope_trade(
     ask_collateral: &ScopeTradeAskCollateral,
     bid_collateral: &ScopeTradeBidCollateral,
 ) -> Result<ExecuteResults, ContractError> {
-    let mut messages = vec![];
     // Asker gets the quote that the bidder provided from escrow
-    messages.push(CosmosMsg::Bank(BankMsg::Send {
+    let mut messages = vec![CosmosMsg::Bank(BankMsg::Send {
         to_address: ask_order.owner.to_string(),
         amount: ask_collateral.quote.to_owned(),
-    }));
+    })];
     let scope = ProvenanceQuerier::new(&deps.querier).get_scope(&bid_collateral.scope_address)?;
     // Bidder gets the scope transferred to them
     messages.push(write_scope(

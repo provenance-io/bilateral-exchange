@@ -9,12 +9,14 @@ use crate::types::bid_collateral::{
 };
 use crate::types::bid_order::BidOrder;
 use crate::types::error::ContractError;
+use crate::types::request_descriptor::{AttributeRequirementType, RequestDescriptor};
 use crate::types::share_sale_type::ShareSaleType;
 use crate::util::extensions::ResultExtensions;
 use crate::util::provenance_utilities::{calculate_marker_quote, get_single_marker_coin_holding};
-use cosmwasm_std::{Coin, DepsMut};
+use cosmwasm_std::{Addr, Coin, DepsMut};
 use provwasm_std::{ProvenanceQuerier, ProvenanceQuery};
 use std::cmp::Ordering;
+use take_if::TakeIf;
 
 pub fn validate_match(
     deps: &DepsMut<ProvenanceQuery>,
@@ -50,6 +52,19 @@ fn get_match_validation(
             &ask.ask_type.get_name(),
             &bid.bid_type.get_name(),
         ));
+    }
+
+    // Verify any
+    if let Some(validation_err) =
+        get_required_attributes_error(deps, &ask.descriptor, &bid.owner, "bidder")
+    {
+        validation_messages.push(validation_err);
+    }
+
+    if let Some(validation_err) =
+        get_required_attributes_error(deps, &bid.descriptor, &ask.owner, "asker")
+    {
+        validation_messages.push(validation_err);
     }
 
     match &ask.collateral {
@@ -91,6 +106,64 @@ fn get_match_validation(
         }
     };
     validation_messages
+}
+
+fn get_required_attributes_error<S: Into<String>>(
+    deps: &DepsMut<ProvenanceQuery>,
+    descriptor: &Option<RequestDescriptor>,
+    target_address: &Addr,
+    checked_account_type: S,
+) -> Option<String> {
+    if let Some(attribute_requirement) = descriptor
+        .clone()
+        .and_then(|d| d.attribute_requirement)
+        .take_if(|ar| !ar.attributes.is_empty())
+    {
+        let checked_account_type = checked_account_type.into();
+        let attribute_response = ProvenanceQuerier::new(&deps.querier)
+            .get_attributes(target_address.to_owned(), None::<String>);
+        if let Ok(attributes) = attribute_response {
+            let account_attribute_names = attributes
+                .attributes
+                .into_iter()
+                .map(|a| a.name)
+                .collect::<Vec<String>>();
+            let (requirements_met, error_msg) = match attribute_requirement.requirement_type {
+                AttributeRequirementType::All => {
+                    (
+                        attribute_requirement
+                            .attributes
+                            .iter()
+                            .all(|attribute_name| account_attribute_names.contains(attribute_name)),
+                        format!("the [{} account] is required to have all of the following attributes: {:?}", checked_account_type, &attribute_requirement.attributes),
+                    )
+                }
+                AttributeRequirementType::Any => {
+                    (
+                        attribute_requirement.attributes.iter().any(|attribute_name| account_attribute_names.contains(attribute_name)),
+                        format!("the [{} account] did not have any of the following attributes: {:?}", checked_account_type, &attribute_requirement.attributes),
+                    )
+                },
+                AttributeRequirementType::None => {
+                    (
+                        attribute_requirement.attributes.iter().any(|attribute_name| account_attribute_names.contains(attribute_name)),
+                        format!("the [{} account] is required to not have any of the followinng attributes: {:?}", checked_account_type, &attribute_requirement.attributes),
+                    )
+                }
+            };
+            return if requirements_met {
+                None
+            } else {
+                Some(error_msg)
+            };
+        }
+        return Some(format!(
+            "Failed to fetch account attributes for address [{}]: {:?}",
+            target_address.as_str(),
+            attribute_response.unwrap_err(),
+        ));
+    }
+    None
 }
 
 fn get_coin_trade_collateral_validation(
@@ -385,7 +458,7 @@ mod tests {
     use crate::validation::ask_order_validation::validate_ask_order;
     use crate::validation::bid_order_validation::validate_bid_order;
     use crate::validation::execute_match_validation::validate_match;
-    use cosmwasm_std::{coin, coins, Addr, Coin, DepsMut, Timestamp};
+    use cosmwasm_std::{coin, coins, Addr, Coin, DepsMut};
     use provwasm_mocks::mock_dependencies;
     use provwasm_std::{AccessGrant, MarkerAccess, ProvenanceQuery};
 
@@ -445,10 +518,7 @@ mod tests {
                     permissions: vec![MarkerAccess::Admin],
                 }],
             ),
-            Some(RequestDescriptor {
-                description: Some("Best ask ever".to_string()),
-                effective_time: Some(Timestamp::default()),
-            }),
+            Some(RequestDescriptor::basic("Best ask ever")),
         )
         .expect("expected the ask order to be valid");
         let mut bid_order = BidOrder::new(
@@ -459,10 +529,7 @@ mod tests {
                 "targetcoin",
                 &coins(1000, "nhash"),
             ),
-            Some(RequestDescriptor {
-                description: Some("Best bid ever".to_string()),
-                effective_time: Some(Timestamp::default()),
-            }),
+            Some(RequestDescriptor::basic("Best bid ever")),
         )
         .expect("expected the bid order to be valid");
         validate_match(&deps.as_mut(), &ask_order, &bid_order)
@@ -825,6 +892,7 @@ mod tests {
         )
     }
 
+    #[allow(dead_code)]
     fn marker_share_sale_error<S: Into<String>>(suffix: S) -> String {
         format!(
             "MARKER SHARE SALE Match Validation for AskOrder [ask_id] and BidOrder [bid_id]: {}",
@@ -832,6 +900,7 @@ mod tests {
         )
     }
 
+    #[allow(dead_code)]
     fn scope_trade_error<S: Into<String>>(suffix: S) -> String {
         format!(
             "SCOPE TRADE Match Validation for AskOrder [ask_id] and BidOrder [bid_id]: {}",

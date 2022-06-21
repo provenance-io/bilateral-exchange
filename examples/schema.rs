@@ -6,7 +6,7 @@ use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 use bilateral_exchange::storage::contract_info::ContractInfo;
 use bilateral_exchange::types::ask_order::AskOrder;
 use bilateral_exchange::types::bid_order::BidOrder;
-use bilateral_exchange::types::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use bilateral_exchange::types::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 
 fn main() {
     let mut out_dir = current_dir().unwrap();
@@ -19,4 +19,5 @@ fn main() {
     export_schema(&schema_for!(ExecuteMsg), &out_dir);
     export_schema(&schema_for!(InstantiateMsg), &out_dir);
     export_schema(&schema_for!(QueryMsg), &out_dir);
+    export_schema(&schema_for!(MigrateMsg), &out_dir);
 }

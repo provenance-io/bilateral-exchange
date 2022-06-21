@@ -23,12 +23,14 @@ pub enum ShareSaleType {
     },
 }
 impl ShareSaleType {
+    #[allow(dead_code)]
     fn single(share_count: u128) -> ShareSaleType {
         ShareSaleType::SingleTransaction {
             share_count: Uint128::new(share_count),
         }
     }
 
+    #[allow(dead_code)]
     fn multiple(remove_sale_share_threshold: Option<Uint128>) -> ShareSaleType {
         ShareSaleType::MultipleTransactions {
             remove_sale_share_threshold,

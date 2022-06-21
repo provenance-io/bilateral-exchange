@@ -3,22 +3,22 @@
   "title": "BidOrder",
   "type": "object",
   "required": [
-    "base",
+    "bid_type",
+    "collateral",
     "id",
-    "owner",
-    "quote"
+    "owner"
   ],
   "properties": {
-    "base": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/Coin"
-      }
+    "bid_type": {
+      "$ref": "#/definitions/RequestType"
     },
-    "effective_time": {
+    "collateral": {
+      "$ref": "#/definitions/BidCollateral"
+    },
+    "descriptor": {
       "anyOf": [
         {
-          "$ref": "#/definitions/Timestamp"
+          "$ref": "#/definitions/RequestDescriptor"
         },
         {
           "type": "null"
@@ -30,18 +30,90 @@
     },
     "owner": {
       "$ref": "#/definitions/Addr"
-    },
-    "quote": {
-      "type": "array",
-      "items": {
-        "$ref": "#/definitions/Coin"
-      }
     }
   },
   "definitions": {
     "Addr": {
       "description": "A human readable address.\n\nIn Cosmos, this is typically bech32 encoded. But for multi-chain smart contracts no assumptions should be made other than being UTF-8 encoded and of reasonable length.\n\nThis type represents a validated address. It can be created in the following ways 1. Use `Addr::unchecked(input)` 2. Use `let checked: Addr = deps.api.addr_validate(input)?` 3. Use `let checked: Addr = deps.api.addr_humanize(canonical_addr)?` 4. Deserialize from JSON. This must only be done from JSON that was validated before such as a contract's state. `Addr` must not be used in messages sent by the user because this would result in unvalidated instances.\n\nThis type is immutable. If you really need to mutate it (Really? Are you sure?), create a mutable copy using `let mut mutable = Addr::to_string()` and operate on that `String` instance.",
       "type": "string"
+    },
+    "AttributeRequirement": {
+      "type": "object",
+      "required": [
+        "attributes",
+        "requirement_type"
+      ],
+      "properties": {
+        "attributes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "requirement_type": {
+          "$ref": "#/definitions/AttributeRequirementType"
+        }
+      }
+    },
+    "AttributeRequirementType": {
+      "type": "string",
+      "enum": [
+        "all",
+        "any",
+        "none"
+      ]
+    },
+    "BidCollateral": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "coin_trade"
+          ],
+          "properties": {
+            "coin_trade": {
+              "$ref": "#/definitions/CoinTradeBidCollateral"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "marker_trade"
+          ],
+          "properties": {
+            "marker_trade": {
+              "$ref": "#/definitions/MarkerTradeBidCollateral"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "marker_share_sale"
+          ],
+          "properties": {
+            "marker_share_sale": {
+              "$ref": "#/definitions/MarkerShareSaleBidCollateral"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "scope_trade"
+          ],
+          "properties": {
+            "scope_trade": {
+              "$ref": "#/definitions/ScopeTradeBidCollateral"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     },
     "Coin": {
       "type": "object",
@@ -54,6 +126,133 @@
           "$ref": "#/definitions/Uint128"
         },
         "denom": {
+          "type": "string"
+        }
+      }
+    },
+    "CoinTradeBidCollateral": {
+      "type": "object",
+      "required": [
+        "base",
+        "quote"
+      ],
+      "properties": {
+        "base": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
+          }
+        },
+        "quote": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
+          }
+        }
+      }
+    },
+    "MarkerShareSaleBidCollateral": {
+      "type": "object",
+      "required": [
+        "address",
+        "denom",
+        "quote",
+        "share_count"
+      ],
+      "properties": {
+        "address": {
+          "$ref": "#/definitions/Addr"
+        },
+        "denom": {
+          "type": "string"
+        },
+        "quote": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
+          }
+        },
+        "share_count": {
+          "$ref": "#/definitions/Uint128"
+        }
+      }
+    },
+    "MarkerTradeBidCollateral": {
+      "type": "object",
+      "required": [
+        "address",
+        "denom",
+        "quote"
+      ],
+      "properties": {
+        "address": {
+          "$ref": "#/definitions/Addr"
+        },
+        "denom": {
+          "type": "string"
+        },
+        "quote": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
+          }
+        }
+      }
+    },
+    "RequestDescriptor": {
+      "type": "object",
+      "properties": {
+        "attribute_requirement": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AttributeRequirement"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "effective_time": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "RequestType": {
+      "type": "string",
+      "enum": [
+        "coin_trade",
+        "marker_trade",
+        "marker_share_sale",
+        "scope_trade"
+      ]
+    },
+    "ScopeTradeBidCollateral": {
+      "type": "object",
+      "required": [
+        "quote",
+        "scope_address"
+      ],
+      "properties": {
+        "quote": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
+          }
+        },
+        "scope_address": {
           "type": "string"
         }
       }

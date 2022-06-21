@@ -19,7 +19,7 @@ mod tests {
     use crate::types::msg::QueryMsg;
     use crate::types::request_descriptor::RequestDescriptor;
     use cosmwasm_std::testing::mock_env;
-    use cosmwasm_std::{coins, Addr, Timestamp};
+    use cosmwasm_std::{coins, Addr};
     use provwasm_mocks::mock_dependencies;
 
     #[test]
@@ -42,10 +42,7 @@ mod tests {
             "bid_id",
             Addr::unchecked("bidder"),
             BidCollateral::coin_trade(&coins(100, "base_1"), &coins(100, "quote_1")),
-            Some(RequestDescriptor {
-                description: Some("description words".to_string()),
-                effective_time: Some(Timestamp::default()),
-            }),
+            Some(RequestDescriptor::basic("description words")),
         );
 
         if let Err(error) = insert_bid_order(deps.as_mut().storage, &bid_order) {

@@ -17,10 +17,10 @@ mod tests {
     use crate::types::ask_collateral::AskCollateral;
     use crate::types::ask_order::AskOrder;
     use crate::types::msg::QueryMsg;
-    use crate::types::request_descriptor::RequestDescriptor;
+    use crate::types::request_descriptor::{AttributeRequirement, RequestDescriptor};
     use crate::types::request_type::RequestType;
     use cosmwasm_std::testing::mock_env;
-    use cosmwasm_std::{coins, Addr, Timestamp};
+    use cosmwasm_std::{coins, Addr};
     use provwasm_mocks::mock_dependencies;
 
     #[test]
@@ -44,10 +44,10 @@ mod tests {
             ask_type: RequestType::CoinTrade,
             owner: Addr::unchecked("asker"),
             collateral: AskCollateral::coin_trade(&coins(200, "base_1"), &coins(100, "quote_1")),
-            descriptor: Some(RequestDescriptor {
-                description: Some("a very nice description".to_string()),
-                effective_time: Some(Timestamp::default()),
-            }),
+            descriptor: Some(RequestDescriptor::new_populated_attributes(
+                "a very nice description",
+                AttributeRequirement::all(&["some.attribute.pb"]),
+            )),
         };
 
         if let Err(error) = insert_ask_order(deps.as_mut().storage, &ask_order) {

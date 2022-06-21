@@ -13,6 +13,18 @@ pub fn validate_bid_order(bid_order: &BidOrder) -> Result<(), ContractError> {
     if bid_order.owner.as_str().is_empty() {
         invalid_field_messages.push("owner for BidOrder must not be empty".to_string());
     }
+    if let Some(attribute_requirement) = bid_order
+        .descriptor
+        .as_ref()
+        .and_then(|d| d.attribute_requirement.as_ref())
+    {
+        if attribute_requirement.attributes.is_empty() {
+            invalid_field_messages.push(format!(
+                "BidOrder [{}] specified RequiredAttributes, but the value included no attributes to check",
+                bid_order.id,
+            ));
+        }
+    }
     match bid_order.bid_type {
         RequestType::CoinTrade => {
             if !matches!(bid_order.collateral, BidCollateral::CoinTrade(_)) {

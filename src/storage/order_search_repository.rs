@@ -126,7 +126,7 @@ where
                 .index_map
                 .load(storage, id.as_bytes())
                 .map(|value| vec![value])
-                .unwrap_or(vec![]),
+                .unwrap_or_default(),
         }
     }
 

@@ -24,14 +24,14 @@ pub fn create_bid(
         .to_err();
     }
     let collateral = match &bid {
-        Bid::CoinTrade(coin_trade) => create_coin_trade_collateral(&info, &coin_trade),
+        Bid::CoinTrade(coin_trade) => create_coin_trade_collateral(&info, coin_trade),
         Bid::MarkerTrade(marker_trade) => {
-            create_marker_trade_collateral(&deps, &info, &marker_trade)
+            create_marker_trade_collateral(&deps, &info, marker_trade)
         }
         Bid::MarkerShareSale(marker_share_sale) => {
-            create_marker_share_sale_collateral(&deps, &info, &marker_share_sale)
+            create_marker_share_sale_collateral(&deps, &info, marker_share_sale)
         }
-        Bid::ScopeTrade(scope_trade) => create_scope_trade_collateral(&info, &scope_trade),
+        Bid::ScopeTrade(scope_trade) => create_scope_trade_collateral(&info, scope_trade),
     }?;
     let bid_order = BidOrder::new(bid.get_id(), info.sender, collateral, descriptor)?;
     insert_bid_order(deps.storage, &bid_order)?;

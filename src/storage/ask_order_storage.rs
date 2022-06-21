@@ -68,7 +68,7 @@ pub fn update_ask_order(
     ask_order: &AskOrder,
 ) -> Result<(), ContractError> {
     let state = ask_orders();
-    if let Ok(_) = state.load(storage, ask_order.get_pk()) {
+    if state.load(storage, ask_order.get_pk()).is_ok() {
         store_ask_order(storage, ask_order)
     } else {
         ContractError::StorageError {

@@ -18,6 +18,9 @@ pub enum ContractError {
     #[error("Invalid marker: {message}")]
     InvalidMarker { message: String },
 
+    #[error("Invalid migration: {message}")]
+    InvalidMigration { message: String },
+
     #[error("Scope at address [{scope_address}] has invalid owner: {explanation}")]
     InvalidScopeOwner {
         scope_address: String,
@@ -29,6 +32,9 @@ pub enum ContractError {
 
     #[error("Missing field: {field:?}")]
     MissingField { field: String },
+
+    #[error("{0}")]
+    SemVerError(#[from] semver::Error),
 
     #[error("{0}")]
     Std(#[from] StdError),
@@ -65,6 +71,12 @@ impl ContractError {
 
     pub fn invalid_marker<S: Into<String>>(message: S) -> ContractError {
         ContractError::InvalidMarker {
+            message: message.into(),
+        }
+    }
+
+    pub fn invalid_migration<S: Into<String>>(message: S) -> ContractError {
+        ContractError::InvalidMigration {
             message: message.into(),
         }
     }

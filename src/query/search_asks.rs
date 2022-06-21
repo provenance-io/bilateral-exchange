@@ -23,7 +23,7 @@ mod tests {
     use crate::types::request_descriptor::RequestDescriptor;
     use crate::types::request_type::RequestType;
     use crate::types::search::{Search, SearchResult};
-    use cosmwasm_std::{from_binary, Addr, Deps, Timestamp};
+    use cosmwasm_std::{from_binary, Addr, Deps};
     use provwasm_mocks::mock_dependencies;
     use provwasm_std::ProvenanceQuery;
 
@@ -73,10 +73,7 @@ mod tests {
                             &[],
                         )
                     },
-                    Some(RequestDescriptor {
-                        description: Some(format!("Some ask {}", index)),
-                        effective_time: Some(Timestamp::default()),
-                    }),
+                    Some(RequestDescriptor::basic(format!("Some ask {}", index))),
                 ),
             )
             .expect(&format!(
@@ -209,10 +206,7 @@ mod tests {
                     format!("ask_id_{}", index),
                     Addr::unchecked(format!("asker{}", index)),
                     AskCollateral::coin_trade(&[], &[]),
-                    Some(RequestDescriptor {
-                        description: Some(format!("Some ask {}", index)),
-                        effective_time: Some(Timestamp::default()),
-                    }),
+                    Some(RequestDescriptor::basic(format!("Some ask {}", index))),
                 ),
             )
             .expect(&format!(
@@ -267,10 +261,7 @@ mod tests {
                             &[],
                         )
                     },
-                    Some(RequestDescriptor {
-                        description: Some(format!("Some ask {}", index)),
-                        effective_time: Some(Timestamp::default()),
-                    }),
+                    Some(RequestDescriptor::basic(format!("Some ask {}", index))),
                 ),
             )
             .expect(&format!(
@@ -321,10 +312,7 @@ mod tests {
                 "ask_id_0",
                 Addr::unchecked("asker"),
                 AskCollateral::coin_trade(&[], &[]),
-                Some(RequestDescriptor {
-                    description: Some("Some ask".to_string()),
-                    effective_time: Some(Timestamp::default()),
-                }),
+                Some(RequestDescriptor::basic("Some ask")),
             ),
         )
         .expect("expected the ask order to be inserted correctly");
@@ -372,10 +360,7 @@ mod tests {
                             &[],
                         )
                     },
-                    Some(RequestDescriptor {
-                        description: Some(format!("Some ask {}", index)),
-                        effective_time: Some(Timestamp::default()),
-                    }),
+                    Some(RequestDescriptor::basic(format!("Some ask {}", index))),
                 ),
             )
             .expect(&format!(

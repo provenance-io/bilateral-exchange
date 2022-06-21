@@ -6,6 +6,7 @@ pub mod bid_collateral;
 pub mod bid_order;
 pub mod constants;
 pub mod error;
+pub mod migration_options;
 pub mod msg;
 pub mod request_descriptor;
 pub mod request_type;

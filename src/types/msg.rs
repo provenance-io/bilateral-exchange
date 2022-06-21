@@ -1,5 +1,6 @@
 use crate::types::ask::Ask;
 use crate::types::bid::Bid;
+use crate::types::migration_options::MigrationOptions;
 use crate::types::request_descriptor::RequestDescriptor;
 use crate::types::search::Search;
 use schemars::JsonSchema;
@@ -42,4 +43,10 @@ pub enum QueryMsg {
     GetContractInfo {},
     SearchAsks { search: Search },
     SearchBids { search: Search },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum MigrateMsg {
+    ContractUpgrade { options: Option<MigrationOptions> },
 }

@@ -51,11 +51,21 @@
         "create_ask": {
           "type": "object",
           "required": [
-            "base"
+            "ask"
           ],
           "properties": {
-            "base": {
-              "$ref": "#/definitions/AskBase"
+            "ask": {
+              "$ref": "#/definitions/Ask"
+            },
+            "descriptor": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/RequestDescriptor"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           }
         }
@@ -71,28 +81,21 @@
         "create_bid": {
           "type": "object",
           "required": [
-            "base",
-            "id"
+            "bid"
           ],
           "properties": {
-            "base": {
-              "type": "array",
-              "items": {
-                "$ref": "#/definitions/Coin"
-              }
+            "bid": {
+              "$ref": "#/definitions/Bid"
             },
-            "effective_time": {
+            "descriptor": {
               "anyOf": [
                 {
-                  "$ref": "#/definitions/Timestamp"
+                  "$ref": "#/definitions/RequestDescriptor"
                 },
                 {
                   "type": "null"
                 }
               ]
-            },
-            "id": {
-              "type": "string"
             }
           }
         }
@@ -125,16 +128,16 @@
     }
   ],
   "definitions": {
-    "AskBase": {
+    "Ask": {
       "anyOf": [
         {
           "type": "object",
           "required": [
-            "coin"
+            "coin_trade"
           ],
           "properties": {
-            "coin": {
-              "$ref": "#/definitions/CoinAskBase"
+            "coin_trade": {
+              "$ref": "#/definitions/CoinTradeAsk"
             }
           },
           "additionalProperties": false
@@ -142,11 +145,113 @@
         {
           "type": "object",
           "required": [
-            "marker"
+            "marker_trade"
           ],
           "properties": {
-            "marker": {
-              "$ref": "#/definitions/MarkerAskBase"
+            "marker_trade": {
+              "$ref": "#/definitions/MarkerTradeAsk"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "marker_share_sale"
+          ],
+          "properties": {
+            "marker_share_sale": {
+              "$ref": "#/definitions/MarkerShareSaleAsk"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "scope_trade"
+          ],
+          "properties": {
+            "scope_trade": {
+              "$ref": "#/definitions/ScopeTradeAsk"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "AttributeRequirement": {
+      "type": "object",
+      "required": [
+        "attributes",
+        "requirement_type"
+      ],
+      "properties": {
+        "attributes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "requirement_type": {
+          "$ref": "#/definitions/AttributeRequirementType"
+        }
+      }
+    },
+    "AttributeRequirementType": {
+      "type": "string",
+      "enum": [
+        "all",
+        "any",
+        "none"
+      ]
+    },
+    "Bid": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "coin_trade"
+          ],
+          "properties": {
+            "coin_trade": {
+              "$ref": "#/definitions/CoinTradeBid"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "marker_trade"
+          ],
+          "properties": {
+            "marker_trade": {
+              "$ref": "#/definitions/MarkerTradeBid"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "marker_share_sale"
+          ],
+          "properties": {
+            "marker_share_sale": {
+              "$ref": "#/definitions/MarkerShareSaleBid"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "scope_trade"
+          ],
+          "properties": {
+            "scope_trade": {
+              "$ref": "#/definitions/ScopeTradeBid"
             }
           },
           "additionalProperties": false
@@ -168,7 +273,7 @@
         }
       }
     },
-    "CoinAskBase": {
+    "CoinTradeAsk": {
       "type": "object",
       "required": [
         "id",
@@ -186,12 +291,31 @@
         }
       }
     },
-    "MarkerAskBase": {
+    "CoinTradeBid": {
+      "type": "object",
+      "required": [
+        "base",
+        "id"
+      ],
+      "properties": {
+        "base": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
+          }
+        },
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "MarkerShareSaleAsk": {
       "type": "object",
       "required": [
         "denom",
         "id",
-        "price_per_share"
+        "quote_per_share",
+        "share_sale_type"
       ],
       "properties": {
         "denom": {
@@ -200,10 +324,190 @@
         "id": {
           "type": "string"
         },
-        "price_per_share": {
-          "$ref": "#/definitions/Coin"
+        "quote_per_share": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
+          }
+        },
+        "share_sale_type": {
+          "$ref": "#/definitions/ShareSaleType"
         }
       }
+    },
+    "MarkerShareSaleBid": {
+      "type": "object",
+      "required": [
+        "denom",
+        "id",
+        "share_count"
+      ],
+      "properties": {
+        "denom": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "share_count": {
+          "$ref": "#/definitions/Uint128"
+        }
+      }
+    },
+    "MarkerTradeAsk": {
+      "type": "object",
+      "required": [
+        "denom",
+        "id",
+        "quote_per_share"
+      ],
+      "properties": {
+        "denom": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "quote_per_share": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
+          }
+        }
+      }
+    },
+    "MarkerTradeBid": {
+      "type": "object",
+      "required": [
+        "denom",
+        "id"
+      ],
+      "properties": {
+        "denom": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "RequestDescriptor": {
+      "type": "object",
+      "properties": {
+        "attribute_requirement": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AttributeRequirement"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "effective_time": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "ScopeTradeAsk": {
+      "type": "object",
+      "required": [
+        "id",
+        "quote",
+        "scope_address"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "quote": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Coin"
+          }
+        },
+        "scope_address": {
+          "type": "string"
+        }
+      }
+    },
+    "ScopeTradeBid": {
+      "type": "object",
+      "required": [
+        "id",
+        "scope_address"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "scope_address": {
+          "type": "string"
+        }
+      }
+    },
+    "ShareSaleType": {
+      "anyOf": [
+        {
+          "description": "Indicates that only a single transaction will be made after an ask of this share type is made. Ex: Asker indicates they want to sell  80 shares of their marker at a certain quote.  The bidder must buy exactly that many shares.",
+          "type": "object",
+          "required": [
+            "single_transaction"
+          ],
+          "properties": {
+            "single_transaction": {
+              "type": "object",
+              "required": [
+                "share_count"
+              ],
+              "properties": {
+                "share_count": {
+                  "$ref": "#/definitions/Uint128"
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "description": "Indicates that multiple transactions can be made after an ask of this share type is made. Optionally allows the sale to be withdrawn after a certain share count is met.  This ensures that shares can be purchased many times from the marker, but never more shares than would reduce the marker's share count below the specified threshold.  The ask is automatically deleted after the threshold is hit.  If the value is not specified, a default of zero will be used. Ex: Asker indicates they want to sell shares of their marker until there are only 10 remaining.  Multiple bids can come in and incrementally buy shares from the marker.  Once the threshold of 10 remaining shares is hit, the ask will be automatically deleted.",
+          "type": "object",
+          "required": [
+            "multiple_transactions"
+          ],
+          "properties": {
+            "multiple_transactions": {
+              "type": "object",
+              "properties": {
+                "remove_sale_share_threshold": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/Uint128"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     },
     "Timestamp": {
       "description": "A point in time in nanosecond precision.\n\nThis type can represent times from 1970-01-01T00:00:00Z to 2554-07-21T23:34:33Z.\n\n## Examples\n\n``` # use cosmwasm_std::Timestamp; let ts = Timestamp::from_nanos(1_000_000_202); assert_eq!(ts.nanos(), 1_000_000_202); assert_eq!(ts.seconds(), 1); assert_eq!(ts.subsec_nanos(), 202);\n\nlet ts = ts.plus_seconds(2); assert_eq!(ts.nanos(), 3_000_000_202); assert_eq!(ts.seconds(), 3); assert_eq!(ts.subsec_nanos(), 202); ```",

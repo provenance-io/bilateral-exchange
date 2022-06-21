@@ -58,7 +58,7 @@ pub fn derive_marker_quote(
     quote_per_share: &[Coin],
 ) -> Result<Vec<Coin>, ContractError> {
     calculate_marker_quote(
-        get_single_marker_coin_holding(&marker)?.amount.u128(),
+        get_single_marker_coin_holding(marker)?.amount.u128(),
         quote_per_share,
     )
     .to_ok()

@@ -30,15 +30,15 @@ pub fn create_ask(
         .to_err();
     }
     let ask_creation_data = match &ask {
-        Ask::CoinTrade(coin_ask) => create_coin_ask_collateral(&info, &coin_ask),
+        Ask::CoinTrade(coin_ask) => create_coin_trade_ask_collateral(&info, coin_ask),
         Ask::MarkerTrade(marker_ask) => {
-            create_marker_ask_collateral(&deps, &info, &env, &marker_ask)
+            create_marker_trade_ask_collateral(&deps, &info, &env, marker_ask)
         }
         Ask::MarkerShareSale(marker_share_sale) => {
-            create_marker_share_sale_ask_collateral(&deps, &info, &env, &marker_share_sale)
+            create_marker_share_sale_ask_collateral(&deps, &info, &env, marker_share_sale)
         }
         Ask::ScopeTrade(scope_trade) => {
-            create_scope_trade_ask_collateral(&deps, &info, &env, &scope_trade)
+            create_scope_trade_ask_collateral(&deps, &info, &env, scope_trade)
         }
     }?;
     let ask_order = AskOrder::new(
@@ -61,7 +61,7 @@ struct AskCreationData {
 }
 
 // create ask entrypoint
-fn create_coin_ask_collateral(
+fn create_coin_trade_ask_collateral(
     info: &MessageInfo,
     coin_trade: &CoinTradeAsk,
 ) -> Result<AskCreationData, ContractError> {
@@ -88,7 +88,7 @@ fn create_coin_ask_collateral(
     .to_ok()
 }
 
-fn create_marker_ask_collateral(
+fn create_marker_trade_ask_collateral(
     deps: &DepsMut<ProvenanceQuery>,
     info: &MessageInfo,
     env: &Env,
@@ -96,7 +96,7 @@ fn create_marker_ask_collateral(
 ) -> Result<AskCreationData, ContractError> {
     if !info.funds.is_empty() {
         return ContractError::InvalidFundsProvided {
-            message: format!("marker trade ask requests should not include funds"),
+            message: "marker trade ask requests should not include funds".to_string(),
         }
         .to_err();
     }
@@ -143,7 +143,7 @@ fn create_marker_share_sale_ask_collateral(
 ) -> Result<AskCreationData, ContractError> {
     if !info.funds.is_empty() {
         return ContractError::InvalidFundsProvided {
-            message: format!("marker share sale ask requests should not include funds"),
+            message: "marker share sale ask requests should not include funds".to_string(),
         }
         .to_err();
     }
@@ -192,7 +192,7 @@ fn create_scope_trade_ask_collateral(
 ) -> Result<AskCreationData, ContractError> {
     if !info.funds.is_empty() {
         return ContractError::InvalidFundsProvided {
-            message: format!("scope trade ask requests should not include funds"),
+            message: "scope trade ask requests should not include funds".to_string(),
         }
         .to_err();
     }
@@ -214,14 +214,19 @@ mod tests {
     use crate::contract::execute;
     use crate::storage::ask_order_storage::get_ask_order_by_id;
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
+    use crate::test::mock_instantiate::default_instantiate;
+    use crate::test::mock_marker::{
+        MockMarker, DEFAULT_MARKER_ADDRESS, DEFAULT_MARKER_DENOM, DEFAULT_MARKER_HOLDINGS,
+    };
     use crate::types::msg::ExecuteMsg;
     use crate::types::request_type::RequestType;
     use cosmwasm_std::testing::{mock_env, mock_info};
-    use cosmwasm_std::{attr, coins, Addr};
+    use cosmwasm_std::{coin, coins, from_binary, Addr, Storage};
     use provwasm_mocks::mock_dependencies;
+    use provwasm_std::{MarkerMsgParams, ProvenanceMsgParams};
 
     #[test]
-    fn create_coin_ask_with_valid_data() {
+    fn create_coin_trade_ask_with_valid_data() {
         let mut deps = mock_dependencies(&[]);
         if let Err(error) = set_contract_info(
             &mut deps.storage,
@@ -248,49 +253,30 @@ mod tests {
             mock_env(),
             asker_info.clone(),
             create_ask_msg.clone(),
+        )
+        .expect("coin trade ask should properly respond");
+
+        assert!(
+            create_ask_response.messages.is_empty(),
+            "coin trades should not generate any messages, but got messages: {:?}",
+            create_ask_response.messages.to_owned(),
         );
 
-        // verify handle create ask response
-        match create_ask_response {
-            Ok(response) => {
-                assert_eq!(response.attributes.len(), 1);
-                assert_eq!(response.attributes[0], attr("action", "create_ask"));
-            }
-            Err(error) => {
-                panic!("failed to create ask: {:?}", error)
-            }
-        }
-
-        // verify ask order stored
-        if let ExecuteMsg::CreateAsk {
-            ask: Ask::CoinTrade(CoinTradeAsk { id, quote }),
-            descriptor: None,
-        } = create_ask_msg
-        {
-            match get_ask_order_by_id(deps.as_ref().storage, "ask_id") {
-                Ok(stored_order) => {
-                    assert_eq!(
-                        stored_order,
-                        AskOrder {
-                            id,
-                            ask_type: RequestType::CoinTrade,
-                            owner: asker_info.sender,
-                            collateral: AskCollateral::coin_trade(&asker_info.funds, &quote),
-                            descriptor: None,
-                        }
-                    )
-                }
-                _ => {
-                    panic!("ask order was not found in storage")
-                }
-            }
-        } else {
-            panic!("ask_message is not a CreateAsk type. this is bad.")
-        }
+        let ask_order = assert_valid_response(&deps.storage, &create_ask_response);
+        assert_eq!("ask_id", ask_order.id);
+        assert_eq!("asker", ask_order.owner.as_str());
+        assert_eq!(RequestType::CoinTrade, ask_order.ask_type);
+        assert_eq!(None, ask_order.descriptor);
+        let collateral = match &ask_order.collateral {
+            AskCollateral::CoinTrade(collateral) => collateral,
+            _ => panic!("unexpected collateral found for coin trade ask order"),
+        };
+        assert_eq!(coins(2, "base_1"), collateral.base);
+        assert_eq!(coins(100, "quote_1"), collateral.quote);
     }
 
     #[test]
-    fn create_coin_ask_with_invalid_data() {
+    fn create_coin_trade_ask_with_invalid_data() {
         let mut deps = mock_dependencies(&[]);
         if let Err(error) = set_contract_info(
             &mut deps.storage,
@@ -401,5 +387,155 @@ mod tests {
                 error => panic!("unexpected error: {:?}", error),
             },
         }
+    }
+
+    #[test]
+    fn create_marker_trade_ask_with_valid_data() {
+        let mut deps = mock_dependencies(&[]);
+        default_instantiate(&mut deps.storage);
+        deps.querier
+            .with_markers(vec![MockMarker::new_owned_marker("asker")]);
+        let descriptor = RequestDescriptor::basic("a decent ask");
+        let response = create_ask(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("asker", &[]),
+            Ask::new_marker_trade("ask_id", DEFAULT_MARKER_DENOM, &[coin(150, "nhash")]),
+            Some(descriptor.to_owned()),
+        )
+        .expect("expected the ask to be accepted");
+        assert_eq!(
+            1,
+            response.messages.len(),
+            "expected a single message to be emitted for the marker trade",
+        );
+        match &response.messages.first().unwrap().msg {
+            CosmosMsg::Custom(ProvenanceMsg {
+                params:
+                    ProvenanceMsgParams::Marker(MarkerMsgParams::RevokeMarkerAccess { denom, address }),
+                ..
+            }) => {
+                assert_eq!(
+                    DEFAULT_MARKER_DENOM, denom,
+                    "the default marker denom should be referenced in the revocation",
+                );
+                assert_eq!(
+                    "asker",
+                    address.as_str(),
+                    "the asker address should be revoked its access from the marker on a successful ask",
+                );
+            }
+            msg => panic!("unexpected message in marker trade: {:?}", msg),
+        }
+        let ask_order = assert_valid_response(&deps.storage, &response);
+        assert_eq!(
+            "ask_id", ask_order.id,
+            "the proper ask id should be set in the ask order",
+        );
+        assert_eq!(
+            RequestType::MarkerTrade,
+            ask_order.ask_type,
+            "the proper request type should bet set in the ask order",
+        );
+        assert_eq!(
+            "asker",
+            ask_order.owner.as_str(),
+            "the proper owner address should be set in the ask order",
+        );
+        assert_eq!(
+            descriptor,
+            ask_order
+                .descriptor
+                .expect("the descriptor should be set in the ask order"),
+            "the proper descriptor should be set in the ask order",
+        );
+        let marker_trade_collateral = match &ask_order.collateral {
+            AskCollateral::MarkerTrade(collateral) => collateral,
+            collateral => panic!("incorrect collateral type in ask order: {:?}", collateral),
+        };
+        assert_eq!(
+            DEFAULT_MARKER_ADDRESS,
+            marker_trade_collateral.address.as_str(),
+            "the correct marker address should be set in the marker trade collateral",
+        );
+        assert_eq!(
+            DEFAULT_MARKER_DENOM, marker_trade_collateral.denom,
+            "the correct marker denom should be set in the marker trade collateral",
+        );
+        assert_eq!(
+            DEFAULT_MARKER_HOLDINGS,
+            marker_trade_collateral.share_count.u128(),
+            "the correct marker share count should be set in the marker trade collateral",
+        );
+        assert_eq!(
+            coins(150, "nhash"),
+            marker_trade_collateral.quote_per_share,
+            "the correct quote per share should be set in the marker trade collateral",
+        );
+    }
+
+    #[test]
+    fn test_create_marker_trade_ask_with_invalid_data() {
+        let mut deps = mock_dependencies(&[]);
+        default_instantiate(&mut deps.storage);
+        let error = create_ask(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("asker", &coins(100, "nhash")),
+            Ask::new_marker_trade("ask_id", DEFAULT_MARKER_DENOM, &[]),
+            None,
+        )
+        .expect_err("a marker trade with funds should be rejected");
+        assert!(
+            matches!(error, ContractError::InvalidFundsProvided { .. }),
+            "an invalid funds error should be returned when funds are added to a marker trade ask",
+        );
+        let error = create_ask(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("asker", &[]),
+            Ask::new_marker_trade("ask_id", DEFAULT_MARKER_DENOM, &coins(100, "nhash")),
+            None,
+        )
+        .expect_err(
+            "a marker trade that references a marker that does not exist should be rejected",
+        );
+        assert!(
+            matches!(error, ContractError::Std(_)),
+            "a missing marker should cause a standard cosmwasm error",
+        );
+    }
+
+    fn assert_valid_response(
+        storage: &dyn Storage,
+        response: &Response<ProvenanceMsg>,
+    ) -> AskOrder {
+        assert_eq!(
+            1,
+            response.attributes.len(),
+            "expected only a single response attribute"
+        );
+        let attribute = response.attributes.first().unwrap();
+        assert_eq!(
+            "action", attribute.key,
+            "the response attribute should have the proper key",
+        );
+        assert_eq!(
+            "create_ask", attribute.value,
+            "the response attribute should have the proper value",
+        );
+        let ask_order: AskOrder = if let Some(ask_order_binary) = &response.data {
+            from_binary(&ask_order_binary)
+                .expect("expected ask order to deserialize properly from response")
+        } else {
+            panic!("expected data to be properly set after a successful response")
+        };
+        let storage_ask_order = get_ask_order_by_id(storage, &ask_order.id)
+            .expect("expected the ask order to be found by its id in storage");
+        assert_eq!(
+            ask_order, storage_ask_order,
+            "the ask order found in storage should equate to the ask order in the output data",
+        );
+        ask_order
     }
 }

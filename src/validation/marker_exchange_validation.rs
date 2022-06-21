@@ -12,7 +12,7 @@ pub fn validate_marker_for_ask(
     contract_address: &Addr,
     expected_contract_permissions: &[MarkerAccess],
 ) -> Result<(), ContractError> {
-    if !marker_has_admin(&marker, original_owner_address) {
+    if !marker_has_admin(marker, original_owner_address) {
         return ContractError::InvalidMarker {
             message: format!(
                 "expected sender [{}] to have admin privileges on marker [{}]",
@@ -22,7 +22,7 @@ pub fn validate_marker_for_ask(
         }
         .to_err();
     }
-    if !marker_has_permissions(&marker, contract_address, expected_contract_permissions) {
+    if !marker_has_permissions(marker, contract_address, expected_contract_permissions) {
         return ContractError::InvalidMarker {
             message: format!(
                 "expected this contract [{}] to have privileges {:?} on marker [{}]",
@@ -43,7 +43,7 @@ pub fn validate_marker_for_ask(
         }
         .to_err();
     }
-    let marker_coin = get_single_marker_coin_holding(&marker)?;
+    let marker_coin = get_single_marker_coin_holding(marker)?;
     if marker_coin.amount.u128() == 0 {
         return ContractError::InvalidMarker {
             message: format!(
