@@ -1,0 +1,69 @@
+# This file gets mapped to the LocalConfig class when the application starts via StartupUtil.
+
+# This determines which example to run.  Choose one of the following:
+# - coin_trade
+# - marker_share_sale_single
+# - marker_share_sale_multi
+# - marker_trade
+# - scope_trade
+# - search
+targetExample = "coin_trade"
+
+# These properties point to a provenance instance.  By default, it points to the local instance.
+[provenance]
+chainId = "chain-local"
+channelNode = "http://localhost:9090"
+
+[contract]
+# This property will lookup the bilateral exchange smart contract by the given name
+name = "bilateral1.pb"
+
+# These accounts represent the accounts used throughout each example.  All are used in every example, as they have their
+# own required, unique functionalities.
+[accounts]
+askerMnemonic = "figure razor approve praise hope school project question neglect other sail spray sense shine page test oil purchase fox neither orphan birth easy mobile"
+askerHdPath = "m/44'/1'/0'/0/0'"
+bidderMnemonic = "letter arch fragile sport tell ill hunt celery bamboo affair click dinner submit merge lottery either ribbon sadness sand zoo flush grab symbol cat"
+bidderHdPath = "m/44'/1'/0'/0/0'"
+adminMnemonic = "idle call jealous poet correct book trust gold fringe retire hard fall champion shiver super ginger night double crawl topic impose globe antique student"
+adminHdPath = "m/44'/1'/0'/0/0'"
+# A local network should expose one of its seed accounts in its genesis file, which should provide this mnemonic.
+# If those values are not available to you, you should still be able to fund your accounts with your node0 account in
+# the build/node0 directory of your provenance blockchain install.
+fundingMnemonic = "stable payment cliff fault abuse clinic bus belt film then forward world goose bring picnic rich special brush basic lamp window coral worry change"
+fundingHdPath = "m/44'/1'/0'/0/0"
+
+[funding]
+# If all the accounts have enough funds to do things prior to running the contract, simply set fund_accounts_at_startup = false.
+# This will also prevent the funding mnemonic and hd path values from being used, and they can be left blank or be unchanged
+fundAccountsAtStartup = false
+fundingAmount = 20000000000000
+fundingDenom = "nhash"
+
+# Configures the behavior of the CoinTradeExample class
+[coinTrade]
+quoteAmount = 100
+quoteDenom = "nhash"
+baseAmount = 50
+baseDenom = "nhash"
+
+# Configures the behavior of the MarkerTradeExample class
+[markerTrade]
+markerDenom = "testdenom1"
+
+# Configures the behavior of the MarkerShareSaleSingleTxExample class
+[markerShareSaleSingleTx]
+markerDenom = "testdenom2"
+shareCount = 100
+shareSaleAmount = 75
+
+# Configures the behavior of the MarkerShareSaleMultipleTxExample class
+[markerShareSaleMultipleTx]
+markerDenom = "testdenom3"
+shareCount = 100
+sharePurchaseCount = 25
+shareCutoff = 0
+
+# Configures the behavior of the ScopeTradeExample class
+[scopeTrade]
+writeScopeSpec = true

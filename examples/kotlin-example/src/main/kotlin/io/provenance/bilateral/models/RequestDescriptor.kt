@@ -21,4 +21,24 @@ data class RequestDescriptor(
     @JsonSerialize(using = ContractUTCTimestampSerializer::class)
     @JsonDeserialize(using = ContractUTCTimestampDeserializer::class)
     val effectiveTime: OffsetDateTime? = null,
+    val attributeRequirement: AttributeRequirement? = null,
 )
+
+@JsonNaming(SnakeCaseStrategy::class)
+data class AttributeRequirement(
+    val attributes: List<String>,
+    val requirementType: String,
+) {
+    companion object {
+        fun new(attributes: List<String>, type: AttributeRequirementType): AttributeRequirement = AttributeRequirement(
+            attributes = attributes,
+            requirementType = type.contractName,
+        )
+    }
+}
+
+enum class AttributeRequirementType(val contractName: String) {
+    ALL("all"),
+    ANY("any"),
+    NONE("none"),
+}

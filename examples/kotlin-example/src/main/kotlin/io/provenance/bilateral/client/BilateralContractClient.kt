@@ -1,4 +1,4 @@
-package io.provenance.bilateral
+package io.provenance.bilateral.client
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import cosmos.base.v1beta1.CoinOuterClass.Coin

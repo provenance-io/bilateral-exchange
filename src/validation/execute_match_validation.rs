@@ -135,19 +135,36 @@ fn get_required_attributes_error<S: Into<String>>(
                             .attributes
                             .iter()
                             .all(|attribute_name| account_attribute_names.contains(attribute_name)),
-                        format!("the [{} account] is required to have all of the following attributes: {:?}", checked_account_type, &attribute_requirement.attributes),
+                        format!(
+                            "the [{} account] is required to have all of the following attributes: {:?}",
+                            checked_account_type,
+                            &attribute_requirement.attributes
+                        ),
                     )
                 }
                 AttributeRequirementType::Any => {
                     (
-                        attribute_requirement.attributes.iter().any(|attribute_name| account_attribute_names.contains(attribute_name)),
-                        format!("the [{} account] did not have any of the following attributes: {:?}", checked_account_type, &attribute_requirement.attributes),
+                        attribute_requirement.attributes
+                            .iter()
+                            .any(|attribute_name| account_attribute_names.contains(attribute_name)),
+                        format!(
+                            "the [{} account] did not have any of the following attributes: {:?}",
+                            checked_account_type,
+                            &attribute_requirement.attributes,
+                        ),
                     )
                 },
                 AttributeRequirementType::None => {
                     (
-                        attribute_requirement.attributes.iter().any(|attribute_name| account_attribute_names.contains(attribute_name)),
-                        format!("the [{} account] is required to not have any of the followinng attributes: {:?}", checked_account_type, &attribute_requirement.attributes),
+                        // Negate the .any() to convert it into a .none(), which sadly does not exist
+                        !attribute_requirement.attributes
+                            .iter()
+                            .any(|attribute_name| account_attribute_names.contains(attribute_name)),
+                        format!(
+                            "the [{} account] is required to not have any of the following attributes: {:?}",
+                            checked_account_type,
+                            &attribute_requirement.attributes
+                        ),
                     )
                 }
             };
