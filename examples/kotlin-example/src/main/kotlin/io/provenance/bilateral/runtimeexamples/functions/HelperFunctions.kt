@@ -1,7 +1,7 @@
 package io.provenance.bilateral.runtimeexamples.functions
 
 import cosmos.base.v1beta1.CoinOuterClass.Coin
-import cosmos.tx.v1beta1.ServiceOuterClass
+import cosmos.tx.v1beta1.ServiceOuterClass.BroadcastMode
 import io.provenance.bilateral.runtimeexamples.config.AppDependencies
 import io.provenance.bilateral.runtimeexamples.extensions.checkZeroResponseCode
 import io.provenance.bilateral.runtimeexamples.extensions.wrapList
@@ -16,6 +16,8 @@ import io.provenance.marker.v1.MarkerType
 import io.provenance.marker.v1.MsgActivateRequest
 import io.provenance.marker.v1.MsgAddAccessRequest
 import io.provenance.marker.v1.MsgAddMarkerRequest
+import io.provenance.name.v1.MsgBindNameRequest
+import io.provenance.name.v1.NameRecord
 
 fun coin(amount: Long, denom: String): Coin = Coin.newBuilder().setAmount(amount.toString()).setDenom(denom).build()
 
@@ -59,7 +61,7 @@ fun createMarker(
     deps.client.pbClient.estimateAndBroadcastTx(
         txBody = listOf(addReq, activateReq).map { it.toAny() }.toTxBody(),
         signers = ownerAccount.let(::BaseReqSigner).wrapList(),
-        mode = ServiceOuterClass.BroadcastMode.BROADCAST_MODE_BLOCK,
+        mode = BroadcastMode.BROADCAST_MODE_BLOCK,
         gasAdjustment = 1.3,
     ).checkZeroResponseCode()
 }
@@ -83,7 +85,42 @@ fun grantMarkerAccess(
     deps.client.pbClient.estimateAndBroadcastTx(
         txBody = accessReq.toAny().toTxBody(),
         signers = markerAdminAccount.let(::BaseReqSigner).wrapList(),
-        mode = ServiceOuterClass.BroadcastMode.BROADCAST_MODE_BLOCK,
+        mode = BroadcastMode.BROADCAST_MODE_BLOCK,
         gasAdjustment = 1.3,
     ).checkZeroResponseCode()
+}
+
+fun bindNamesToSigner(
+    deps: AppDependencies,
+    names: List<String>,
+    signer: Signer,
+    restricted: Boolean,
+) {
+    names.map { name ->
+        MsgBindNameRequest.newBuilder().also { bindName ->
+            val nameParts = name.split(".")
+            val rootName = nameParts.first()
+            val parentName = nameParts.drop(1).joinToString("")
+            println("Building name binding for [${signer.address()}] with root name [$rootName] to parent name [$parentName] for combined name [$name]")
+            bindName.parent = NameRecord.newBuilder().also { record ->
+                record.name = parentName
+                record.address = signer.address()
+            }.build()
+            bindName.record = NameRecord.newBuilder().also { record ->
+                record.name = rootName
+                record.address = signer.address()
+                record.restricted = restricted
+            }.build()
+        }.build().toAny()
+    }.also { nameMsgs ->
+        println("Sending transaction to bind names $names to signer [${signer.address()}]")
+        deps.client.pbClient.estimateAndBroadcastTx(
+            txBody = nameMsgs.toTxBody(),
+            signers = BaseReqSigner(signer).wrapList(),
+            mode = BroadcastMode.BROADCAST_MODE_BLOCK,
+            gasAdjustment = 1.3,
+        ).checkZeroResponseCode().also {
+            println("Successfully bound names $names to signer [${signer.address()}]")
+        }
+    }
 }

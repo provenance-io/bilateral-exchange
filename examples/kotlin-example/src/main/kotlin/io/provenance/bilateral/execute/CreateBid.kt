@@ -26,7 +26,11 @@ data class CreateBid(val createBid: Body) : ContractExecuteMsg {
                     },
                     "descriptor" : {
                       "description" : "Example description",
-                      "effective_time" : "1655690324377129000"
+                      "effective_time" : "1655690324377129000",
+                      "attribute_requirement" : {
+                         "attributes" : [ "something.pb" ],
+                         "requirement_type": "any"
+                      }
                     }
                   }
                 }

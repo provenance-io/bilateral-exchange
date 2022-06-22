@@ -1,6 +1,7 @@
 package io.provenance.bilateral.runtimeexamples.config
 
 import com.akuleshov7.ktoml.Toml
+import io.provenance.bilateral.models.AttributeRequirementType
 import io.provenance.bilateral.runtimeexamples.examples.enums.ExampleType
 import kotlinx.serialization.SerialName
 import java.net.URI
@@ -25,6 +26,8 @@ data class LocalConfig(
     val markerShareSaleSingleTxConfig: MarkerShareSaleSingleTxConfig,
     @SerialName("markerShareSaleMultipleTx")
     val markerShareSaleMultipleTxConfig: MarkerShareSaleMultipleTxConfig,
+    @SerialName("requiredAttributes")
+    val requiredAttributesConfig: RequiredAttributesConfig,
     @SerialName("scopeTrade")
     val scopeTradeConfig: ScopeTradeConfig,
 ) {
@@ -99,6 +102,20 @@ data class MarkerShareSaleMultipleTxConfig(
     val sharePurchaseCount: Long,
     val shareCutoff: Long,
 )
+
+@Serializable
+data class RequiredAttributesConfig(
+    val requirementType: String,
+    val attributes: List<String>,
+) {
+    fun getRequirementTypeEnum(): AttributeRequirementType = AttributeRequirementType
+        .values()
+        .associateBy { it.contractName }
+        .let { requirementTypeMap ->
+            requirementTypeMap[requirementType]
+                ?: throw IllegalArgumentException("Unexpected requirementType value [$requirementType]. Please choose one of: ${requirementTypeMap.keys}")
+        }
+}
 
 @Serializable
 data class ScopeTradeConfig(

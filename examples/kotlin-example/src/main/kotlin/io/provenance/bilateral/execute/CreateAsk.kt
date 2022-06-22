@@ -32,7 +32,11 @@ data class CreateAsk(
                 },
                 "descriptor" : {
                   "description" : "Example description",
-                  "effective_time" : "1655690320315894000"
+                  "effective_time" : "1655690320315894000",
+                  "attribute_requirement" : {
+                    "attributes" : [ "something.pb" ],
+                    "requirement_type": "any"
+                  }
                 }
               }
             }
@@ -68,7 +72,11 @@ data class CreateAsk(
                 },
                 "descriptor" : {
                   "description" : "Example description",
-                  "effective_time" : "1655690830145197000"
+                  "effective_time" : "1655690830145197000",
+                  "attribute_requirement" : {
+                    "attributes" : [ "something.pb" ],
+                    "requirement_type": "all"
+                  }
                 }
               }
             }
@@ -113,7 +121,11 @@ data class CreateAsk(
                 },
                 "descriptor" : {
                   "description" : "Example description",
-                  "effective_time" : "1655691526779913000"
+                  "effective_time" : "1655691526779913000",
+                  "attribute_requirement" : {
+                    "attributes" : [ "something.pb" ],
+                    "requirement_type": "none"
+                  }
                 }
               }
             }
@@ -142,7 +154,11 @@ data class CreateAsk(
                 },
                 "descriptor" : {
                   "description" : "Example description",
-                  "effective_time" : "1655691957648311000"
+                  "effective_time" : "1655691957648311000",
+                  "attribute_requirement" : {
+                    "attributes" : [ "a.pb", "b.pb", "c.pb" ],
+                    "requirement_type": "all"
+                  }
                 }
               }
             }
@@ -185,7 +201,11 @@ data class CreateAsk(
                 },
                 "descriptor" : {
                   "description" : "Example description",
-                  "effective_time" : "1655692117958721000"
+                  "effective_time" : "1655692117958721000",
+                  "attribute_requirement" : {
+                    "attributes" : [ "a.pb", "b.pb", "c.pb" ],
+                    "requirement_type": "none"
+                  }
                 }
               }
             }

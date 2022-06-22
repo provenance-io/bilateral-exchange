@@ -5,9 +5,10 @@
 # - marker_share_sale_single
 # - marker_share_sale_multi
 # - marker_trade
+# - required_attributes
 # - scope_trade
 # - search
-targetExample = "coin_trade"
+targetExample = "required_attributes"
 
 # These properties point to a provenance instance.  By default, it points to the local instance.
 [provenance]
@@ -63,6 +64,14 @@ markerDenom = "testdenom3"
 shareCount = 100
 sharePurchaseCount = 25
 shareCutoff = 0
+
+# Configures the behavior of the RequiredAttributesExample class
+[requiredAttributes]
+# This value corresponds to any of the AttributeRequirementType "contractName" values in the RequestDescriptor file
+requirementType = "none"
+# These attributes will be written to the chain during the example.  If they use restricted parent names, the example
+# will fail.
+attributes = ["test107.pb", "test108.pb", "test109.pb"]
 
 # Configures the behavior of the ScopeTradeExample class
 [scopeTrade]
