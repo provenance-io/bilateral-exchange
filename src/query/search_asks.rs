@@ -1,7 +1,7 @@
 use crate::storage::ask_order_storage::ask_orders;
 use crate::storage::order_search_repository::OrderSearchRepository;
-use crate::types::error::ContractError;
-use crate::types::search::Search;
+use crate::types::core::error::ContractError;
+use crate::types::request::search::Search;
 use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::{to_binary, Binary, Deps};
 use provwasm_std::ProvenanceQuery;
@@ -15,14 +15,14 @@ pub fn search_asks(deps: Deps<ProvenanceQuery>, search: Search) -> Result<Binary
 mod tests {
     use crate::query::search_asks::search_asks;
     use crate::storage::ask_order_storage::insert_ask_order;
-    use crate::types::ask_collateral::AskCollateral;
-    use crate::types::ask_order::AskOrder;
-    use crate::types::constants::{
+    use crate::types::core::constants::{
         DEFAULT_SEARCH_PAGE_NUMBER, DEFAULT_SEARCH_PAGE_SIZE, MAX_SEARCH_PAGE_SIZE,
     };
-    use crate::types::request_descriptor::RequestDescriptor;
-    use crate::types::request_type::RequestType;
-    use crate::types::search::{Search, SearchResult};
+    use crate::types::request::ask_types::ask_collateral::AskCollateral;
+    use crate::types::request::ask_types::ask_order::AskOrder;
+    use crate::types::request::request_descriptor::RequestDescriptor;
+    use crate::types::request::request_type::RequestType;
+    use crate::types::request::search::{Search, SearchResult};
     use cosmwasm_std::{from_binary, Addr, Deps};
     use provwasm_mocks::mock_dependencies;
     use provwasm_std::ProvenanceQuery;

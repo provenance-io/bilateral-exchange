@@ -18,7 +18,7 @@ impl<T> ResultExtensions for T {}
 
 #[cfg(test)]
 mod tests {
-    use crate::types::error::ContractError;
+    use crate::types::core::error::ContractError;
 
     use super::ResultExtensions;
 

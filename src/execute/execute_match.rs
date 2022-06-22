@@ -3,18 +3,18 @@ use crate::storage::ask_order_storage::{
 };
 use crate::storage::bid_order_storage::{delete_bid_order_by_id, get_bid_order_by_id};
 use crate::storage::contract_info::get_contract_info;
-use crate::types::ask_collateral::{
+use crate::types::core::error::ContractError;
+use crate::types::request::ask_types::ask_collateral::{
     AskCollateral, CoinTradeAskCollateral, MarkerShareSaleAskCollateral, MarkerTradeAskCollateral,
     ScopeTradeAskCollateral,
 };
-use crate::types::ask_order::AskOrder;
-use crate::types::bid_collateral::{
+use crate::types::request::ask_types::ask_order::AskOrder;
+use crate::types::request::bid_types::bid_collateral::{
     CoinTradeBidCollateral, MarkerShareSaleBidCollateral, MarkerTradeBidCollateral,
     ScopeTradeBidCollateral,
 };
-use crate::types::bid_order::BidOrder;
-use crate::types::error::ContractError;
-use crate::types::share_sale_type::ShareSaleType;
+use crate::types::request::bid_types::bid_order::BidOrder;
+use crate::types::request::share_sale_type::ShareSaleType;
 use crate::util::extensions::ResultExtensions;
 use crate::util::provenance_utilities::{release_marker_from_contract, replace_scope_owner};
 use crate::validation::execute_match_validation::validate_match;

@@ -1,8 +1,8 @@
-use crate::types::ask::Ask;
-use crate::types::bid::Bid;
-use crate::types::migration_options::MigrationOptions;
-use crate::types::request_descriptor::RequestDescriptor;
-use crate::types::search::Search;
+use crate::types::migrate::migration_options::MigrationOptions;
+use crate::types::request::ask_types::ask::Ask;
+use crate::types::request::bid_types::bid::Bid;
+use crate::types::request::request_descriptor::RequestDescriptor;
+use crate::types::request::search::Search;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

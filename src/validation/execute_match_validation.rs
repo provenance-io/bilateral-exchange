@@ -1,16 +1,16 @@
-use crate::types::ask_collateral::{
+use crate::types::core::error::ContractError;
+use crate::types::request::ask_types::ask_collateral::{
     AskCollateral, CoinTradeAskCollateral, MarkerShareSaleAskCollateral, MarkerTradeAskCollateral,
     ScopeTradeAskCollateral,
 };
-use crate::types::ask_order::AskOrder;
-use crate::types::bid_collateral::{
+use crate::types::request::ask_types::ask_order::AskOrder;
+use crate::types::request::bid_types::bid_collateral::{
     BidCollateral, CoinTradeBidCollateral, MarkerShareSaleBidCollateral, MarkerTradeBidCollateral,
     ScopeTradeBidCollateral,
 };
-use crate::types::bid_order::BidOrder;
-use crate::types::error::ContractError;
-use crate::types::request_descriptor::{AttributeRequirementType, RequestDescriptor};
-use crate::types::share_sale_type::ShareSaleType;
+use crate::types::request::bid_types::bid_order::BidOrder;
+use crate::types::request::request_descriptor::{AttributeRequirementType, RequestDescriptor};
+use crate::types::request::share_sale_type::ShareSaleType;
 use crate::util::extensions::ResultExtensions;
 use crate::util::provenance_utilities::{calculate_marker_quote, get_single_marker_coin_holding};
 use cosmwasm_std::{Addr, Coin, DepsMut};
@@ -54,15 +54,16 @@ fn get_match_validation(
         ));
     }
 
-    // Verify any
+    // Verify that the asker has appropriate attributes based on the request descriptor of the bid
     if let Some(validation_err) =
-        get_required_attributes_error(deps, &ask.descriptor, &bid.owner, "bidder")
+        get_required_attributes_error(deps, &bid.descriptor, &ask.owner, "asker")
     {
         validation_messages.push(validation_err);
     }
 
+    // Verify that the bidder has appropriate attributes based on the request descriptor of the ask
     if let Some(validation_err) =
-        get_required_attributes_error(deps, &bid.descriptor, &ask.owner, "asker")
+        get_required_attributes_error(deps, &ask.descriptor, &bid.owner, "bidder")
     {
         validation_messages.push(validation_err);
     }
@@ -466,18 +467,24 @@ fn coin_sorter(first: &Coin, second: &Coin) -> Ordering {
 #[cfg(feature = "enable-test-utils")]
 mod tests {
     use crate::test::mock_marker::{MockMarker, DEFAULT_MARKER_ADDRESS};
-    use crate::types::ask_collateral::AskCollateral;
-    use crate::types::ask_order::AskOrder;
-    use crate::types::bid_collateral::BidCollateral;
-    use crate::types::bid_order::BidOrder;
-    use crate::types::error::ContractError;
-    use crate::types::request_descriptor::{AttributeRequirement, RequestDescriptor};
-    use crate::types::request_type::RequestType;
-    use crate::types::share_sale_type::ShareSaleType;
+    use crate::test::request_helpers::{
+        mock_ask, mock_ask_marker_trade, mock_ask_with_descriptor, mock_bid, mock_bid_marker_trade,
+        mock_bid_with_descriptor, replace_ask_quote, replace_bid_quote,
+    };
+    use crate::types::core::error::ContractError;
+    use crate::types::request::ask_types::ask_collateral::AskCollateral;
+    use crate::types::request::ask_types::ask_order::AskOrder;
+    use crate::types::request::bid_types::bid_collateral::BidCollateral;
+    use crate::types::request::bid_types::bid_order::BidOrder;
+    use crate::types::request::request_descriptor::{AttributeRequirement, RequestDescriptor};
+    use crate::types::request::request_type::RequestType;
+    use crate::types::request::share_sale_type::ShareSaleType;
     use crate::validation::ask_order_validation::validate_ask_order;
     use crate::validation::bid_order_validation::validate_bid_order;
-    use crate::validation::execute_match_validation::validate_match;
-    use cosmwasm_std::{coin, coins, Addr, Coin, DepsMut};
+    use crate::validation::execute_match_validation::{
+        get_required_attributes_error, validate_match,
+    };
+    use cosmwasm_std::{coin, coins, Addr, DepsMut};
     use provwasm_mocks::mock_dependencies;
     use provwasm_std::{AccessGrant, MarkerAccess, ProvenanceQuery};
 
@@ -572,25 +579,18 @@ mod tests {
         .expect("expected the bid order to be valid");
         validate_match(&deps.as_mut(), &ask_order, &bid_order)
             .expect("expected validation to pass for a single coin quote");
-        ask_order.collateral = AskCollateral::marker_trade(
-            Addr::unchecked("marker"),
-            "targetcoin",
-            10,
+        replace_ask_quote(
+            &mut ask_order,
             &[
                 coin(10, "nhash"),
                 coin(5, "otherthing"),
                 coin(13, "worstthing"),
             ],
-            &[AccessGrant {
-                address: Addr::unchecked("asker"),
-                permissions: vec![MarkerAccess::Admin],
-            }],
         );
         validate_ask_order(&ask_order)
             .expect("expected the ask order to remain valid after changes");
-        bid_order.collateral = BidCollateral::marker_trade(
-            Addr::unchecked("marker"),
-            "targetcoin",
+        replace_bid_quote(
+            &mut bid_order,
             &[
                 coin(100, "nhash"),
                 coin(50, "otherthing"),
@@ -657,23 +657,11 @@ mod tests {
         );
         validate_match(&deps.as_mut(), &ask_order, &bid_order)
             .expect("expected match validation to pass with correct parameters");
-        ask_order.collateral = AskCollateral::marker_share_sale(
-            Addr::unchecked(DEFAULT_MARKER_ADDRESS),
-            "targetcoin",
-            10,
-            &[coin(100, "nhash"), coin(250, "yolocoin")],
-            &[AccessGrant {
-                address: Addr::unchecked("asker"),
-                permissions: vec![MarkerAccess::Admin],
-            }],
-            ShareSaleType::single(5),
-        );
+        replace_ask_quote(&mut ask_order, &[coin(100, "nhash"), coin(250, "yolocoin")]);
         validate_ask_order(&ask_order)
             .expect("expected ask order to pass validation with a multi coin quote per share");
-        bid_order.collateral = BidCollateral::marker_share_sale(
-            Addr::unchecked(DEFAULT_MARKER_ADDRESS),
-            "targetcoin",
-            5,
+        replace_bid_quote(
+            &mut bid_order,
             &[coin(500, "nhash"), coin(1250, "yolocoin")],
         );
         validate_bid_order(&bid_order)
@@ -732,23 +720,11 @@ mod tests {
         .expect("expected bid order to pass validation");
         validate_match(&deps.as_mut(), &ask_order, &bid_order)
             .expect("expected match validation to pass with correct parameters");
-        ask_order.collateral = AskCollateral::marker_share_sale(
-            Addr::unchecked(DEFAULT_MARKER_ADDRESS),
-            "targetcoin",
-            10,
-            &[coin(100, "nhash"), coin(250, "yolocoin")],
-            &[AccessGrant {
-                address: Addr::unchecked("asker"),
-                permissions: vec![MarkerAccess::Admin],
-            }],
-            ShareSaleType::multiple(Some(5)),
-        );
+        replace_ask_quote(&mut ask_order, &[coin(100, "nhash"), coin(250, "yolocoin")]);
         validate_ask_order(&ask_order)
             .expect("expected ask order to pass validation with a multi coin quote per share");
-        bid_order.collateral = BidCollateral::marker_share_sale(
-            Addr::unchecked(DEFAULT_MARKER_ADDRESS),
-            "targetcoin",
-            5,
+        replace_bid_quote(
+            &mut bid_order,
             &[coin(500, "nhash"), coin(1250, "yolocoin")],
         );
         validate_bid_order(&bid_order)
@@ -791,11 +767,9 @@ mod tests {
         );
         validate_match(&deps.as_mut(), &ask_order, &bid_order)
             .expect("expected match validation to pass for correct scope trade parameters");
-        ask_order.collateral =
-            AskCollateral::scope_trade("scope", &[coin(100, "acoin"), coin(100, "bcoin")]);
+        replace_ask_quote(&mut ask_order, &[coin(100, "acoin"), coin(100, "bcoin")]);
         validate_ask_order(&ask_order).expect("multi coin ask order should pass validation");
-        bid_order.collateral =
-            BidCollateral::scope_trade("scope", &[coin(100, "acoin"), coin(100, "bcoin")]);
+        replace_bid_quote(&mut bid_order, &[coin(100, "acoin"), coin(100, "bcoin")]);
         validate_bid_order(&bid_order).expect("multi coin bid order should pass validation");
         validate_match(&deps.as_mut(), &ask_order, &bid_order).expect(
             "expected match validation to pass when ask and bid order used a multi-coin quote",
@@ -805,43 +779,255 @@ mod tests {
     #[test]
     fn test_mismatched_ask_and_bid_types() {
         let mut deps = mock_dependencies(&[]);
-        assert_validation_failure(
-            "Ask type coin and bid type marker mismatch",
-            &deps.as_mut(),
-            &AskOrder {
+        RequestType::iterator().for_each(|ask_request_type| {
+            let ask_order = AskOrder {
                 id: "ask_id".to_string(),
-                ask_type: RequestType::CoinTrade,
+                ask_type: ask_request_type.to_owned(),
                 owner: Addr::unchecked("ask_addr"),
                 collateral: AskCollateral::coin_trade(&[], &[]),
                 descriptor: None,
-            },
-            &BidOrder {
-                id: "bid_id".to_string(),
-                bid_type: RequestType::MarkerTrade,
-                owner: Addr::unchecked("bid_addr"),
-                collateral: BidCollateral::coin_trade(&[], &[]),
-                descriptor: None,
-            },
-            expected_error("Ask type [coin_trade] does not match bid type [marker_trade]"),
+            };
+            RequestType::iterator().for_each(|bid_request_type| {
+                // Skip duplicate types - they obviously will match
+                if ask_request_type == bid_request_type {
+                    return;
+                }
+                let bid_order = BidOrder {
+                    id: "bid_id".to_string(),
+                    bid_type: bid_request_type.to_owned(),
+                    owner: Addr::unchecked("bid_addr"),
+                    collateral: BidCollateral::coin_trade(&[], &[]),
+                    descriptor: None,
+                };
+                assert_validation_failure(
+                    format!(
+                        "Ask type [{}] and bid type [{}] mismatch",
+                        ask_request_type.get_name(),
+                        bid_request_type.get_name()
+                    ),
+                    &deps.as_mut(),
+                    &ask_order,
+                    &bid_order,
+                    expected_error(format!(
+                        "Ask type [{}] does not match bid type [{}]",
+                        ask_request_type.get_name(),
+                        bid_request_type.get_name()
+                    )),
+                );
+            });
+        });
+    }
+
+    #[test]
+    fn test_asker_missing_required_attributes() {
+        let mut deps = mock_dependencies(&[]);
+        assert_validation_failure(
+            "Ask order is required to have an attribute but it has no attributes",
+            &deps.as_mut(),
+            &mock_ask(AskCollateral::coin_trade(&[], &[])),
+            &mock_bid_with_descriptor(
+                BidCollateral::coin_trade(&[], &[]),
+                RequestDescriptor::new_populated_attributes("description", AttributeRequirement::all(&["myattribute.pb"])),
+            ),
+            "the [asker account] is required to have all of the following attributes: [\"myattribute.pb\"]",
         );
+    }
+
+    #[test]
+    fn test_bidder_missing_required_attributes() {
+        let mut deps = mock_dependencies(&[]);
         assert_validation_failure(
-            "Ask type marker and bid type coin mismatch",
+            "Bid order is required to have an attribute but it has no attributes",
             &deps.as_mut(),
-            &AskOrder {
-                id: "ask_id".to_string(),
-                ask_type: RequestType::MarkerTrade,
-                owner: Addr::unchecked("ask_addr"),
-                collateral: AskCollateral::coin_trade(&[], &[]),
-                descriptor: None,
-            },
-            &BidOrder {
-                id: "bid_id".to_string(),
-                bid_type: RequestType::CoinTrade,
-                owner: Addr::unchecked("bid_addr"),
-                collateral: BidCollateral::coin_trade(&[], &[]),
-                descriptor: None,
-            },
-            expected_error("Ask type [marker_trade] does not match bid type [coin_trade]"),
+            &mock_ask_with_descriptor(
+                AskCollateral::coin_trade(&[], &[]),
+                RequestDescriptor::new_populated_attributes("description", AttributeRequirement::all(&["attr.pb"])),
+            ),
+            &mock_bid(BidCollateral::coin_trade(&[], &[])),
+            "the [bidder account] is required to have all of the following attributes: [\"attr.pb\"]",
+        );
+    }
+
+    #[test]
+    fn test_get_required_attributes_error_none_scenarios() {
+        let mut deps = mock_dependencies(&[]);
+        let address = Addr::unchecked("asker");
+        let account_type = "asker";
+        assert_eq!(
+            None,
+            get_required_attributes_error(&deps.as_mut(), &None, &address, account_type,),
+            "None should be returned when attribute requirement is not provided",
+        );
+        assert_eq!(
+            None,
+            get_required_attributes_error(
+                &deps.as_mut(),
+                &Some(RequestDescriptor::new_none()),
+                &address,
+                account_type,
+            ),
+            "None should be returned when the request descriptor has no attribute requirement",
+        );
+        assert_eq!(
+            None,
+            get_required_attributes_error(
+                &deps.as_mut(),
+                &Some(RequestDescriptor::new_populated_attributes(
+                    "description",
+                    AttributeRequirement::all::<String>(&[]),
+                )),
+                &address,
+                account_type,
+            ),
+            "None should be returned when the attribute vector is empty in the attribute requirement",
+        );
+    }
+
+    #[test]
+    fn test_get_required_attributes_error_all_type_scenarios() {
+        let mut deps = mock_dependencies(&[]);
+        let address = Addr::unchecked("asker");
+        let account_type = "asker";
+        assert_eq!(
+            "the [asker account] is required to have all of the following attributes: [\"a.pb\"]",
+            get_required_attributes_error(
+                &deps.as_mut(),
+                &Some(RequestDescriptor::new_populated_attributes(
+                    "desc",
+                    AttributeRequirement::all(&["a.pb"]),
+                )),
+                &address,
+                account_type,
+            )
+            .expect("expected a string response with erroneous input"),
+            "expected the proper error message when no attributes were found",
+        );
+        deps.querier
+            .with_attributes("asker", &[("a.pb", "value", "string")]);
+        assert_eq!(
+            None,
+            get_required_attributes_error(
+                &deps.as_mut(),
+                &Some(RequestDescriptor::new_populated_attributes(
+                    "desc",
+                    AttributeRequirement::all(&["a.pb"]),
+                )),
+                &address,
+                account_type,
+            ),
+            "expected None to be returned when all attributes were held on the account",
+        );
+        assert_eq!(
+            "the [asker account] is required to have all of the following attributes: [\"a.pb\", \"b.pb\"]",
+            get_required_attributes_error(
+                &deps.as_mut(),
+                &Some(RequestDescriptor::new_populated_attributes(
+                    "desc",
+                    AttributeRequirement::all(&["a.pb", "b.pb"]),
+                )),
+                &address,
+                account_type,
+            ).expect("expected a string response with erroneous input"),
+            "expected an error to occur when the account only has one of many of the needed attributes",
+        );
+    }
+
+    #[test]
+    fn test_get_required_attributes_error_any_type_scenarios() {
+        let mut deps = mock_dependencies(&[]);
+        let address = Addr::unchecked("bidder");
+        let account_type = "bidder";
+        assert_eq!(
+            "the [bidder account] did not have any of the following attributes: [\"a.pb\"]",
+            get_required_attributes_error(
+                &deps.as_mut(),
+                &Some(RequestDescriptor::new_populated_attributes(
+                    "desc",
+                    AttributeRequirement::any(&["a.pb"]),
+                )),
+                &address,
+                account_type,
+            )
+            .expect("expected a string response with erroneous input"),
+            "expected the proper error message when no attributes were found",
+        );
+        deps.querier
+            .with_attributes("bidder", &[("a.pb", "value", "string")]);
+        assert_eq!(
+            None,
+            get_required_attributes_error(
+                &deps.as_mut(),
+                &Some(RequestDescriptor::new_populated_attributes(
+                    "desc",
+                    AttributeRequirement::any(&["a.pb"]),
+                )),
+                &address,
+                account_type,
+            ),
+            "expected None to be returned when one of one attributes were held on the account",
+        );
+        assert_eq!(
+            "the [bidder account] did not have any of the following attributes: [\"b.pb\", \"c.pb\", \"d.pb\"]",
+            get_required_attributes_error(
+                &deps.as_mut(),
+                &Some(RequestDescriptor::new_populated_attributes(
+                    "desc",
+                    AttributeRequirement::any(&["b.pb", "c.pb", "d.pb"]),
+                )),
+                &address,
+                account_type,
+            ).expect("expected a string response with erroneous input"),
+            "expected an error to be returned when the account did not have any of the required attributes, but had other attributes",
+        );
+        deps.querier
+            .with_attributes("bidder", &[("d.pb", "value", "string")]);
+        assert_eq!(
+            None,
+            get_required_attributes_error(
+                &deps.as_mut(),
+                &Some(RequestDescriptor::new_populated_attributes(
+                    "desc",
+                    AttributeRequirement::any(&["b.pb", "c.pb", "d.pb"]),
+                )),
+                &address,
+                account_type,
+            ),
+            "expected None to be returned when the account had one of the required attributes",
+        );
+    }
+
+    #[test]
+    fn test_get_required_attributes_error_none_type_scenarios() {
+        let mut deps = mock_dependencies(&[]);
+        let address = Addr::unchecked("bidder");
+        let account_type = "bidder";
+        assert_eq!(
+            None,
+            get_required_attributes_error(
+                &deps.as_mut(),
+                &Some(RequestDescriptor::new_populated_attributes(
+                    "desc",
+                    AttributeRequirement::none(&["a.pb"]),
+                )),
+                &address,
+                account_type,
+            ),
+            "expected None to be returned when the account did not have any of the attributes",
+        );
+        deps.querier
+            .with_attributes("bidder", &[("a.pb", "value", "string")]);
+        assert_eq!(
+            "the [bidder account] is required to not have any of the following attributes: [\"a.pb\"]",
+            get_required_attributes_error(
+                &deps.as_mut(),
+                &Some(RequestDescriptor::new_populated_attributes(
+                    "desc",
+                    AttributeRequirement::none(&["a.pb"]),
+                )),
+                &address,
+                account_type,
+            ).expect("expected an error string to be returned for erroneous input"),
+            "expected the proper error message when a none requirement found related values",
         );
     }
 
@@ -849,18 +1035,18 @@ mod tests {
     fn test_mismatched_collateral_types() {
         let mut deps = mock_dependencies(&[]);
         assert_validation_failure(
-            "Ask collateral coin and bid collateral marker mismatch",
+            "Ask collateral coin_trade and bid collateral marker_trade mismatch",
             &deps.as_mut(),
             &mock_ask(AskCollateral::coin_trade(&[], &[])),
-            &mock_bid(mock_bid_marker("marker", "somecoin", &[])),
+            &mock_bid(mock_bid_marker_trade("marker", "somecoin", &[])),
             expected_error(
                 "Ask collateral was of type coin trade, which did not match bid collateral",
             ),
         );
         assert_validation_failure(
-            "Ask collateral marker and bid collateral coin mismatch",
+            "Ask collateral marker_trade and bid collateral coin_trade mismatch",
             &deps.as_mut(),
-            &mock_ask(mock_ask_marker("marker", "somecoin", 400, &[])),
+            &mock_ask(mock_ask_marker_trade("marker", "somecoin", 400, &[])),
             &mock_bid(BidCollateral::coin_trade(&[], &[])),
             expected_error(
                 "Ask collateral was of type marker trade, which did not match bid collateral",
@@ -869,7 +1055,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mismatched_coin_bases() {
+    fn test_mismatched_coin_trade_bases() {
         let mut deps = mock_dependencies(&[]);
         let mut ask_order = mock_ask(AskCollateral::coin_trade(&coins(150, "nhash"), &[]));
         let mut bid_order = mock_bid(BidCollateral::coin_trade(&coins(100, "nhash"), &[]));
@@ -910,7 +1096,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mismatched_coin_quotes() {
+    fn test_mismatched_coin_trade_quotes() {
         let mut deps = mock_dependencies(&[]);
         let mut ask_order = mock_ask(AskCollateral::coin_trade(&[], &coins(1, "nhash")));
         let mut bid_order = mock_bid(BidCollateral::coin_trade(&[], &coins(2, "nhash")));
@@ -953,13 +1139,13 @@ mod tests {
     }
 
     #[test]
-    fn test_mismatched_marker_denoms() {
+    fn test_marker_trade_mismatched_denoms() {
         let mut deps = mock_dependencies(&[]);
         assert_validation_failure(
             "Ask marker denom does not match bid marker denom",
             &deps.as_mut(),
-            &mock_ask(mock_ask_marker("marker", "firstmarkerdenom", 10, &[])),
-            &mock_bid(mock_bid_marker("marker", "secondmarkerdenom", &[])),
+            &mock_ask(mock_ask_marker_trade("marker", "firstmarkerdenom", 10, &[])),
+            &mock_bid(mock_bid_marker_trade("marker", "secondmarkerdenom", &[])),
             marker_trade_error("Ask marker denom [firstmarkerdenom] does not match bid marker denom [secondmarkerdenom]"),
         );
     }
@@ -970,8 +1156,8 @@ mod tests {
         assert_validation_failure(
             "Ask marker address does not match bid marker address",
             &deps.as_mut(),
-            &mock_ask(mock_ask_marker("marker1", "test", 10, &[])),
-            &mock_bid(mock_bid_marker("marker2", "test", &[])),
+            &mock_ask(mock_ask_marker_trade("marker1", "test", 10, &[])),
+            &mock_bid(mock_bid_marker_trade("marker2", "test", &[])),
             marker_trade_error(
                 "Ask marker address [marker1] does not match bid marker address [marker2]",
             ),
@@ -984,8 +1170,8 @@ mod tests {
         assert_validation_failure(
             "No marker was mocked for target marker address",
             &deps.as_mut(),
-            &mock_ask(mock_ask_marker("marker", "test", 10, &[])),
-            &mock_bid(mock_bid_marker("marker", "test", &[])),
+            &mock_ask(mock_ask_marker_trade("marker", "test", 10, &[])),
+            &mock_bid(mock_bid_marker_trade("marker", "test", &[])),
             marker_trade_error("Failed to find marker for denom [test]"),
         );
     }
@@ -1000,8 +1186,8 @@ mod tests {
         }
         .to_marker();
         deps.querier.with_markers(vec![marker.clone()]);
-        let ask = mock_ask(mock_ask_marker("marker", "targetcoin", 10, &[]));
-        let bid = mock_bid(mock_bid_marker("marker", "targetcoin", &[]));
+        let ask = mock_ask(mock_ask_marker_trade("marker", "targetcoin", 10, &[]));
+        let bid = mock_bid(mock_bid_marker_trade("marker", "targetcoin", &[]));
         assert_validation_failure(
             "Marker contained none of its own denom",
             &deps.as_mut(),
@@ -1042,14 +1228,14 @@ mod tests {
         assert_validation_failure(
             "Marker contained a coin count that did not match the value recorded when the ask was made",
             &deps.as_mut(),
-            &mock_ask(mock_ask_marker("marker", "targetcoin", 49, &[])),
-            &mock_bid(mock_bid_marker("marker", "targetcoin", &[])),
+            &mock_ask(mock_ask_marker_trade("marker", "targetcoin", 49, &[])),
+            &mock_bid(mock_bid_marker_trade("marker", "targetcoin", &[])),
             marker_trade_error("Marker share count was [50] but the original value when added to the contract was [49]"),
         );
     }
 
     #[test]
-    fn test_mismatched_marker_trade_ask_and_bid_quotes() {
+    fn test_marker_trade_mismatched_ask_and_bid_quotes() {
         let mut deps = mock_dependencies(&[]);
         let marker = MockMarker {
             denom: "targetcoin".to_string(),
@@ -1061,13 +1247,13 @@ mod tests {
         assert_validation_failure(
             "Marker bid had a bad value to match the calculated marker quote",
             &deps.as_mut(),
-            &mock_ask(mock_ask_marker(
+            &mock_ask(mock_ask_marker_trade(
                 "marker",
                 "targetcoin",
                 10,
                 &coins(50, "nhash"),
             )),
-            &mock_bid(mock_bid_marker(
+            &mock_bid(mock_bid_marker_trade(
                 "marker",
                 "targetcoin",
                 &coins(200, "nhash"),
@@ -1143,39 +1329,5 @@ mod tests {
             "SCOPE TRADE Match Validation for AskOrder [ask_id] and BidOrder [bid_id]: {}",
             suffix.into(),
         )
-    }
-
-    fn mock_ask(collateral: AskCollateral) -> AskOrder {
-        AskOrder::new_unchecked("ask_id", Addr::unchecked("asker"), collateral, None)
-    }
-
-    fn mock_ask_marker<S1: Into<String>, S2: Into<String>>(
-        addr: S1,
-        denom: S2,
-        share_count: u128,
-        share_quote: &[Coin],
-    ) -> AskCollateral {
-        AskCollateral::marker_trade(
-            Addr::unchecked(addr),
-            denom,
-            share_count,
-            share_quote,
-            &[AccessGrant {
-                address: Addr::unchecked("asker"),
-                permissions: vec![MarkerAccess::Admin],
-            }],
-        )
-    }
-
-    fn mock_bid(collateral: BidCollateral) -> BidOrder {
-        BidOrder::new_unchecked("bid_id", Addr::unchecked("bidder"), collateral, None)
-    }
-
-    fn mock_bid_marker<S1: Into<String>, S2: Into<String>>(
-        addr: S1,
-        denom: S2,
-        quote: &[Coin],
-    ) -> BidCollateral {
-        BidCollateral::marker_trade(Addr::unchecked(addr), denom, quote)
     }
 }

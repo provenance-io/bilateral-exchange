@@ -1,5 +1,5 @@
 use crate::storage::ask_order_storage::get_ask_order_by_id;
-use crate::types::error::ContractError;
+use crate::types::core::error::ContractError;
 use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::{to_binary, Binary, Deps};
 use provwasm_std::ProvenanceQuery;
@@ -14,11 +14,11 @@ mod tests {
     use crate::contract::query;
     use crate::storage::ask_order_storage::insert_ask_order;
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
-    use crate::types::ask_collateral::AskCollateral;
-    use crate::types::ask_order::AskOrder;
-    use crate::types::msg::QueryMsg;
-    use crate::types::request_descriptor::{AttributeRequirement, RequestDescriptor};
-    use crate::types::request_type::RequestType;
+    use crate::types::core::msg::QueryMsg;
+    use crate::types::request::ask_types::ask_collateral::AskCollateral;
+    use crate::types::request::ask_types::ask_order::AskOrder;
+    use crate::types::request::request_descriptor::{AttributeRequirement, RequestDescriptor};
+    use crate::types::request::request_type::RequestType;
     use cosmwasm_std::testing::mock_env;
     use cosmwasm_std::{coins, Addr};
     use provwasm_mocks::mock_dependencies;

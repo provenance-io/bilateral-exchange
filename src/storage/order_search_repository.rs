@@ -1,9 +1,9 @@
 use crate::storage::order_indices::OrderIndices;
-use crate::types::constants::{
+use crate::types::core::constants::{
     DEFAULT_SEARCH_ORDER, DEFAULT_SEARCH_PAGE_NUMBER, DEFAULT_SEARCH_PAGE_SIZE,
     MAX_SEARCH_PAGE_SIZE, MIN_SEARCH_PAGE_NUMBER, MIN_SEARCH_PAGE_SIZE,
 };
-use crate::types::search::{Search, SearchResult, SearchType, Searchable};
+use crate::types::request::search::{Search, SearchResult, SearchType, Searchable};
 use cosmwasm_std::{Storage, Uint128};
 use cw_storage_plus::{IndexList, IndexedMap};
 use serde::de::DeserializeOwned;
@@ -166,11 +166,11 @@ mod tests {
     use crate::storage::ask_order_storage::ask_orders;
     use crate::storage::bid_order_storage::bid_orders;
     use crate::storage::order_search_repository::OrderSearchRepository;
-    use crate::types::constants::{
+    use crate::types::core::constants::{
         DEFAULT_SEARCH_PAGE_NUMBER, DEFAULT_SEARCH_PAGE_SIZE, MAX_SEARCH_PAGE_SIZE,
         MIN_SEARCH_PAGE_NUMBER, MIN_SEARCH_PAGE_SIZE,
     };
-    use crate::types::search::Search;
+    use crate::types::request::search::Search;
     use cosmwasm_std::Uint128;
 
     #[test]

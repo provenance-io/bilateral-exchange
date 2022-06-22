@@ -1,12 +1,20 @@
-use crate::types::ask_collateral::AskCollateral;
-use crate::types::bid_collateral::BidCollateral;
+use crate::types::request::ask_types::ask_collateral::AskCollateral;
+use crate::types::request::bid_types::bid_collateral::BidCollateral;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::slice::Iter;
 
 const REQUEST_TYPE_COIN_TRADE: &str = "coin_trade";
 const REQUEST_TYPE_MARKER_TRADE: &str = "marker_trade";
 const REQUEST_TYPE_MARKER_SHARE_SALE: &str = "marker_share_sale";
 const REQUEST_TYPE_SCOPE_TRADE: &str = "scope_trade";
+
+static REQUEST_TYPES: [RequestType; 4] = [
+    RequestType::CoinTrade,
+    RequestType::MarkerTrade,
+    RequestType::MarkerShareSale,
+    RequestType::ScopeTrade,
+];
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -42,5 +50,9 @@ impl RequestType {
             Self::MarkerShareSale => REQUEST_TYPE_MARKER_SHARE_SALE,
             Self::ScopeTrade => REQUEST_TYPE_SCOPE_TRADE,
         }
+    }
+
+    pub fn iterator() -> Iter<'static, RequestType> {
+        REQUEST_TYPES.iter()
     }
 }

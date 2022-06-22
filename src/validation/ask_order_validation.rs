@@ -1,7 +1,7 @@
-use crate::types::ask_collateral::AskCollateral;
-use crate::types::ask_order::AskOrder;
-use crate::types::error::ContractError;
-use crate::types::request_type::RequestType;
+use crate::types::core::error::ContractError;
+use crate::types::request::ask_types::ask_collateral::AskCollateral;
+use crate::types::request::ask_types::ask_order::AskOrder;
+use crate::types::request::request_type::RequestType;
 use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::Coin;
 

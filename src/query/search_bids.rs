@@ -1,7 +1,7 @@
 use crate::storage::bid_order_storage::bid_orders;
 use crate::storage::order_search_repository::OrderSearchRepository;
-use crate::types::error::ContractError;
-use crate::types::search::Search;
+use crate::types::core::error::ContractError;
+use crate::types::request::search::Search;
 use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::{to_binary, Binary, Deps};
 use provwasm_std::ProvenanceQuery;

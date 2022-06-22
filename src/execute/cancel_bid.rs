@@ -1,7 +1,7 @@
 use crate::storage::bid_order_storage::{delete_bid_order_by_id, get_bid_order_by_id};
 use crate::storage::contract_info::get_contract_info;
-use crate::types::bid_collateral::BidCollateral;
-use crate::types::error::ContractError;
+use crate::types::core::error::ContractError;
+use crate::types::request::bid_types::bid_collateral::BidCollateral;
 use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::{to_binary, BankMsg, DepsMut, Env, MessageInfo, Response};
 use provwasm_std::{ProvenanceMsg, ProvenanceQuery};
@@ -56,8 +56,8 @@ mod tests {
     use crate::contract::execute;
     use crate::storage::bid_order_storage::get_bid_order_by_id;
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
-    use crate::types::bid::Bid;
-    use crate::types::msg::ExecuteMsg;
+    use crate::types::core::msg::ExecuteMsg;
+    use crate::types::request::bid_types::bid::Bid;
     use cosmwasm_std::testing::{mock_env, mock_info};
     use cosmwasm_std::{attr, coins, Addr, BankMsg, CosmosMsg};
     use provwasm_mocks::mock_dependencies;

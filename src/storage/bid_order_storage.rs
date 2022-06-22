@@ -1,6 +1,6 @@
 use crate::storage::order_indices::OrderIndices;
-use crate::types::bid_order::BidOrder;
-use crate::types::error::ContractError;
+use crate::types::core::error::ContractError;
+use crate::types::request::bid_types::bid_order::BidOrder;
 use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::Storage;
 use cw_storage_plus::{Index, IndexList, IndexedMap, MultiIndex};

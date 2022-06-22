@@ -3,7 +3,7 @@ use cw_storage_plus::Item;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::types::error::ContractError;
+use crate::types::core::error::ContractError;
 
 const NAMESPACE_CONTRACT_INFO: &str = "contract_info";
 pub const CONTRACT_TYPE: &str = env!("CARGO_CRATE_NAME");

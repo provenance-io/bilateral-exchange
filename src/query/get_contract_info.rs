@@ -1,5 +1,5 @@
 use crate::storage::contract_info::get_contract_info;
-use crate::types::error::ContractError;
+use crate::types::core::error::ContractError;
 use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::{to_binary, Binary, Deps};
 use provwasm_std::ProvenanceQuery;
@@ -13,7 +13,7 @@ mod tests {
     use super::*;
     use crate::contract::query;
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
-    use crate::types::msg::QueryMsg;
+    use crate::types::core::msg::QueryMsg;
     use cosmwasm_std::testing::mock_env;
     use cosmwasm_std::Addr;
     use provwasm_mocks::mock_dependencies;

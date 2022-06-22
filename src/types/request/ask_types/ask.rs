@@ -1,4 +1,4 @@
-use crate::types::share_sale_type::ShareSaleType;
+use crate::types::request::share_sale_type::ShareSaleType;
 use cosmwasm_std::Coin;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

@@ -1,5 +1,5 @@
 use crate::storage::bid_order_storage::get_bid_order_by_id;
-use crate::types::error::ContractError;
+use crate::types::core::error::ContractError;
 use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::{to_binary, Binary, Deps};
 use provwasm_std::ProvenanceQuery;
@@ -14,10 +14,10 @@ mod tests {
     use crate::contract::query;
     use crate::storage::bid_order_storage::insert_bid_order;
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
-    use crate::types::bid_collateral::BidCollateral;
-    use crate::types::bid_order::BidOrder;
-    use crate::types::msg::QueryMsg;
-    use crate::types::request_descriptor::RequestDescriptor;
+    use crate::types::core::msg::QueryMsg;
+    use crate::types::request::bid_types::bid_collateral::BidCollateral;
+    use crate::types::request::bid_types::bid_order::BidOrder;
+    use crate::types::request::request_descriptor::RequestDescriptor;
     use cosmwasm_std::testing::mock_env;
     use cosmwasm_std::{coins, Addr};
     use provwasm_mocks::mock_dependencies;

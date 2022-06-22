@@ -1,7 +1,7 @@
 use crate::storage::ask_order_storage::{delete_ask_order_by_id, get_ask_order_by_id};
 use crate::storage::contract_info::get_contract_info;
-use crate::types::ask_collateral::AskCollateral;
-use crate::types::error::ContractError;
+use crate::types::core::error::ContractError;
+use crate::types::request::ask_types::ask_collateral::AskCollateral;
 use crate::util::extensions::ResultExtensions;
 use crate::util::provenance_utilities::{release_marker_from_contract, replace_scope_owner};
 use cosmwasm_std::{to_binary, BankMsg, CosmosMsg, DepsMut, Env, MessageInfo, Response};
@@ -80,9 +80,9 @@ mod tests {
     use crate::storage::ask_order_storage::insert_ask_order;
     use crate::test::mock_instantiate::default_instantiate;
     use crate::test::mock_marker::{MockMarker, DEFAULT_MARKER_DENOM};
-    use crate::types::ask::Ask;
-    use crate::types::ask_order::AskOrder;
-    use crate::types::msg::ExecuteMsg;
+    use crate::types::core::msg::ExecuteMsg;
+    use crate::types::request::ask_types::ask::Ask;
+    use crate::types::request::ask_types::ask_order::AskOrder;
     use cosmwasm_std::testing::{mock_env, mock_info, MOCK_CONTRACT_ADDR};
     use cosmwasm_std::{attr, coins, from_binary, Addr, CosmosMsg};
     use provwasm_mocks::mock_dependencies;
@@ -189,7 +189,7 @@ mod tests {
         match cancel_response {
             ContractError::StorageError { message } => {
                 assert_eq!(
-                    "failed to find AskOrder by id [unknown_id]: NotFound { kind: \"bilateral_exchange::types::ask_order::AskOrder\" }",
+                    "failed to find AskOrder by id [unknown_id]: NotFound { kind: \"bilateral_exchange::types::request::ask_types::ask_order::AskOrder\" }",
                     message,
                 );
             }

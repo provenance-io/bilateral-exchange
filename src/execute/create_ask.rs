@@ -1,9 +1,11 @@
 use crate::storage::ask_order_storage::{get_ask_order_by_id, insert_ask_order};
-use crate::types::ask::{Ask, CoinTradeAsk, MarkerShareSaleAsk, MarkerTradeAsk, ScopeTradeAsk};
-use crate::types::ask_collateral::AskCollateral;
-use crate::types::ask_order::AskOrder;
-use crate::types::error::ContractError;
-use crate::types::request_descriptor::RequestDescriptor;
+use crate::types::core::error::ContractError;
+use crate::types::request::ask_types::ask::{
+    Ask, CoinTradeAsk, MarkerShareSaleAsk, MarkerTradeAsk, ScopeTradeAsk,
+};
+use crate::types::request::ask_types::ask_collateral::AskCollateral;
+use crate::types::request::ask_types::ask_order::AskOrder;
+use crate::types::request::request_descriptor::RequestDescriptor;
 use crate::util::extensions::ResultExtensions;
 use crate::util::provenance_utilities::{check_scope_owners, get_single_marker_coin_holding};
 use crate::validation::marker_exchange_validation::validate_marker_for_ask;
@@ -219,8 +221,8 @@ mod tests {
     use crate::test::mock_marker::{
         MockMarker, DEFAULT_MARKER_ADDRESS, DEFAULT_MARKER_DENOM, DEFAULT_MARKER_HOLDINGS,
     };
-    use crate::types::msg::ExecuteMsg;
-    use crate::types::request_type::RequestType;
+    use crate::types::core::msg::ExecuteMsg;
+    use crate::types::request::request_type::RequestType;
     use cosmwasm_std::testing::{mock_env, mock_info};
     use cosmwasm_std::{coin, coins, from_binary, Addr, Storage};
     use provwasm_mocks::mock_dependencies;

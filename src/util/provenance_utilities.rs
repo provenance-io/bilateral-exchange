@@ -1,4 +1,4 @@
-use crate::types::error::ContractError;
+use crate::types::core::error::ContractError;
 use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::{coin, Addr, Coin, CosmosMsg};
 use provwasm_std::{

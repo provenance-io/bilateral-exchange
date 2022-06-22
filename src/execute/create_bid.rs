@@ -1,9 +1,11 @@
 use crate::storage::bid_order_storage::{get_bid_order_by_id, insert_bid_order};
-use crate::types::bid::{Bid, CoinTradeBid, MarkerShareSaleBid, MarkerTradeBid, ScopeTradeBid};
-use crate::types::bid_collateral::BidCollateral;
-use crate::types::bid_order::BidOrder;
-use crate::types::error::ContractError;
-use crate::types::request_descriptor::RequestDescriptor;
+use crate::types::core::error::ContractError;
+use crate::types::request::bid_types::bid::{
+    Bid, CoinTradeBid, MarkerShareSaleBid, MarkerTradeBid, ScopeTradeBid,
+};
+use crate::types::request::bid_types::bid_collateral::BidCollateral;
+use crate::types::request::bid_types::bid_order::BidOrder;
+use crate::types::request::request_descriptor::RequestDescriptor;
 use crate::util::extensions::ResultExtensions;
 use crate::util::provenance_utilities::get_single_marker_coin_holding;
 use cosmwasm_std::{to_binary, DepsMut, MessageInfo, Response};
@@ -180,8 +182,8 @@ mod tests {
     use super::*;
     use crate::contract::execute;
     use crate::storage::contract_info::{set_contract_info, ContractInfo};
-    use crate::types::msg::ExecuteMsg;
-    use crate::types::request_type::RequestType;
+    use crate::types::core::msg::ExecuteMsg;
+    use crate::types::request::request_type::RequestType;
     use cosmwasm_std::testing::{mock_env, mock_info};
     use cosmwasm_std::{attr, coins, Addr};
     use provwasm_mocks::mock_dependencies;

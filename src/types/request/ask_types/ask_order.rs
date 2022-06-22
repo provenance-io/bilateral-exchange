@@ -1,8 +1,8 @@
-use crate::types::ask_collateral::AskCollateral;
-use crate::types::error::ContractError;
-use crate::types::request_descriptor::RequestDescriptor;
-use crate::types::request_type::RequestType;
-use crate::types::search::Searchable;
+use crate::types::core::error::ContractError;
+use crate::types::request::ask_types::ask_collateral::AskCollateral;
+use crate::types::request::request_descriptor::RequestDescriptor;
+use crate::types::request::request_type::RequestType;
+use crate::types::request::search::Searchable;
 use crate::util::extensions::ResultExtensions;
 use crate::validation::ask_order_validation::validate_ask_order;
 use cosmwasm_std::Addr;

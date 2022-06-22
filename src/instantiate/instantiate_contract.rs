@@ -1,6 +1,6 @@
 use crate::storage::contract_info::{get_contract_info, set_contract_info, ContractInfo};
-use crate::types::error::ContractError;
-use crate::types::msg::InstantiateMsg;
+use crate::types::core::error::ContractError;
+use crate::types::core::msg::InstantiateMsg;
 use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::{DepsMut, Env, MessageInfo, Response};
 use provwasm_std::{bind_name, NameBinding, ProvenanceMsg, ProvenanceQuery};

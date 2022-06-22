@@ -1,6 +1,6 @@
 use crate::storage::contract_info::{get_contract_info, ContractInfo, CONTRACT_VERSION};
-use crate::types::error::ContractError;
-use crate::types::migration_options::MigrationOptions;
+use crate::types::core::error::ContractError;
+use crate::types::migrate::migration_options::MigrationOptions;
 use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::{attr, to_binary, DepsMut, Response};
 use provwasm_std::{ProvenanceMsg, ProvenanceQuery};

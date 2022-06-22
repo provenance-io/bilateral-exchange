@@ -10,8 +10,8 @@ use crate::query::get_bid::query_bid;
 use crate::query::get_contract_info::query_contract_info;
 use crate::query::search_asks::search_asks;
 use crate::query::search_bids::search_bids;
-use crate::types::error::ContractError;
-use crate::types::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
+use crate::types::core::error::ContractError;
+use crate::types::core::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use cosmwasm_std::{entry_point, Binary, Deps, DepsMut, Env, MessageInfo, Response};
 use provwasm_std::{ProvenanceMsg, ProvenanceQuery};
 

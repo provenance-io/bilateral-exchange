@@ -1,4 +1,4 @@
-use crate::types::error::ContractError;
+use crate::types::core::error::ContractError;
 use crate::util::extensions::ResultExtensions;
 use crate::util::provenance_utilities::{
     get_single_marker_coin_holding, marker_has_admin, marker_has_permissions,

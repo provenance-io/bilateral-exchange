@@ -1,7 +1,7 @@
-use crate::types::bid_collateral::BidCollateral;
-use crate::types::bid_order::BidOrder;
-use crate::types::error::ContractError;
-use crate::types::request_type::RequestType;
+use crate::types::core::error::ContractError;
+use crate::types::request::bid_types::bid_collateral::BidCollateral;
+use crate::types::request::bid_types::bid_order::BidOrder;
+use crate::types::request::request_type::RequestType;
 use crate::util::extensions::ResultExtensions;
 use cosmwasm_std::Coin;
 
