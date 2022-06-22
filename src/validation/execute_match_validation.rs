@@ -1543,7 +1543,6 @@ mod tests {
         )
     }
 
-    #[allow(dead_code)]
     fn marker_share_sale_error<S: Into<String>>(suffix: S) -> String {
         format!(
             "MARKER SHARE SALE Match Validation for AskOrder [ask_id] and BidOrder [bid_id]: {}",
@@ -1551,7 +1550,6 @@ mod tests {
         )
     }
 
-    #[allow(dead_code)]
     fn scope_trade_error<S: Into<String>>(suffix: S) -> String {
         format!(
             "SCOPE TRADE Match Validation for AskOrder [ask_id] and BidOrder [bid_id]: {}",
