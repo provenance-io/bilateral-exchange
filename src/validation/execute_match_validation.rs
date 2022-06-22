@@ -463,15 +463,17 @@ fn coin_sorter(first: &Coin, second: &Coin) -> Ordering {
 }
 
 #[cfg(test)]
+#[cfg(feature = "enable-test-utils")]
 mod tests {
-    use crate::test::mock_marker::MockMarker;
+    use crate::test::mock_marker::{MockMarker, DEFAULT_MARKER_ADDRESS};
     use crate::types::ask_collateral::AskCollateral;
     use crate::types::ask_order::AskOrder;
     use crate::types::bid_collateral::BidCollateral;
     use crate::types::bid_order::BidOrder;
     use crate::types::error::ContractError;
-    use crate::types::request_descriptor::RequestDescriptor;
+    use crate::types::request_descriptor::{AttributeRequirement, RequestDescriptor};
     use crate::types::request_type::RequestType;
+    use crate::types::share_sale_type::ShareSaleType;
     use crate::validation::ask_order_validation::validate_ask_order;
     use crate::validation::bid_order_validation::validate_bid_order;
     use crate::validation::execute_match_validation::validate_match;
@@ -480,22 +482,33 @@ mod tests {
     use provwasm_std::{AccessGrant, MarkerAccess, ProvenanceQuery};
 
     #[test]
-    fn test_successful_coin_validation() {
+    fn test_successful_coin_trade_validation() {
         let mut deps = mock_dependencies(&[]);
         let mut ask_order = AskOrder::new(
             "ask_id",
             Addr::unchecked("asker"),
             AskCollateral::coin_trade(&coins(100, "nhash"), &coins(250, "othercoin")),
-            None,
+            Some(RequestDescriptor::new_populated_attributes(
+                "some description",
+                AttributeRequirement::all(&["attribute.pb"]),
+            )),
         )
         .expect("expected validation to pass for the new ask order");
         let mut bid_order = BidOrder::new(
             "bid_id",
             Addr::unchecked("bidder"),
             BidCollateral::coin_trade(&coins(100, "nhash"), &coins(250, "othercoin")),
-            None,
+            // Provwasm has a limitation - it will only allow one address to have mocked attributes
+            // at a time, so we can't simultaneously test the presence of attributes on both asker
+            // and bidder.  Testing all and none together is the best we can do
+            Some(RequestDescriptor::new_populated_attributes(
+                "bid description",
+                AttributeRequirement::none(&["otherattribute.pb"]),
+            )),
         )
         .expect("expected validation to pass for the new bid order");
+        deps.querier
+            .with_attributes("bidder", &[("attribute.pb", "value", "string")]);
         validate_match(&deps.as_mut(), &ask_order, &bid_order)
             .expect("expected validation to pass for a simple coin to coin trade");
         ask_order.collateral = AskCollateral::coin_trade(
@@ -513,7 +526,7 @@ mod tests {
     }
 
     #[test]
-    fn test_successful_marker_validation() {
+    fn test_successful_marker_trade_validation() {
         let mut deps = mock_dependencies(&[]);
         let marker = MockMarker {
             denom: "targetcoin".to_string(),
@@ -535,9 +548,14 @@ mod tests {
                     permissions: vec![MarkerAccess::Admin],
                 }],
             ),
-            Some(RequestDescriptor::basic("Best ask ever")),
+            Some(RequestDescriptor::new_populated_attributes(
+                "Best ask ever",
+                AttributeRequirement::none(&["badattribute.pio"]),
+            )),
         )
         .expect("expected the ask order to be valid");
+        deps.querier
+            .with_attributes("asker", &[("required.pb", "value", "string")]);
         let mut bid_order = BidOrder::new(
             "bid_id",
             Addr::unchecked("bidder"),
@@ -546,7 +564,10 @@ mod tests {
                 "targetcoin",
                 &coins(1000, "nhash"),
             ),
-            Some(RequestDescriptor::basic("Best bid ever")),
+            Some(RequestDescriptor::new_populated_attributes(
+                "Best bid ever",
+                AttributeRequirement::all(&["required.pb"]),
+            )),
         )
         .expect("expected the bid order to be valid");
         validate_match(&deps.as_mut(), &ask_order, &bid_order)
@@ -580,6 +601,205 @@ mod tests {
             .expect("expected the bid order to remain valid after changes");
         validate_match(&deps.as_mut(), &ask_order, &bid_order)
             .expect("expected the validation to pass for a multi-coin quote");
+    }
+
+    #[test]
+    fn test_successful_marker_share_sale_single_transaction_validation() {
+        let mut deps = mock_dependencies(&[]);
+        let marker = MockMarker {
+            denom: "targetcoin".to_string(),
+            coins: coins(10, "targetcoin"),
+            ..MockMarker::default()
+        }
+        .to_marker();
+        deps.querier.with_markers(vec![marker.clone()]);
+        let mut ask_order = AskOrder::new(
+            "ask_id",
+            Addr::unchecked("asker"),
+            AskCollateral::marker_share_sale(
+                Addr::unchecked(DEFAULT_MARKER_ADDRESS),
+                "targetcoin",
+                10,
+                &coins(100, "nhash"),
+                &[AccessGrant {
+                    address: Addr::unchecked("asker"),
+                    permissions: vec![MarkerAccess::Admin],
+                }],
+                ShareSaleType::single(5),
+            ),
+            Some(RequestDescriptor::new_populated_attributes(
+                "ask description",
+                AttributeRequirement::all(&["required.pb", "required2.pb"]),
+            )),
+        )
+        .expect("expected ask order to pass validation");
+        let mut bid_order = BidOrder::new(
+            "bid_id",
+            Addr::unchecked("bidder"),
+            BidCollateral::marker_share_sale(
+                Addr::unchecked(DEFAULT_MARKER_ADDRESS),
+                "targetcoin",
+                5,
+                &coins(500, "nhash"),
+            ),
+            Some(RequestDescriptor::new_populated_attributes(
+                "bid description",
+                AttributeRequirement::none(&["bad.attribute"]),
+            )),
+        )
+        .expect("expected bid order to pass validation");
+        deps.querier.with_attributes(
+            "bidder",
+            &[
+                ("required.pb", "value", "string"),
+                ("required2.pb", "value2", "string"),
+            ],
+        );
+        validate_match(&deps.as_mut(), &ask_order, &bid_order)
+            .expect("expected match validation to pass with correct parameters");
+        ask_order.collateral = AskCollateral::marker_share_sale(
+            Addr::unchecked(DEFAULT_MARKER_ADDRESS),
+            "targetcoin",
+            10,
+            &[coin(100, "nhash"), coin(250, "yolocoin")],
+            &[AccessGrant {
+                address: Addr::unchecked("asker"),
+                permissions: vec![MarkerAccess::Admin],
+            }],
+            ShareSaleType::single(5),
+        );
+        validate_ask_order(&ask_order)
+            .expect("expected ask order to pass validation with a multi coin quote per share");
+        bid_order.collateral = BidCollateral::marker_share_sale(
+            Addr::unchecked(DEFAULT_MARKER_ADDRESS),
+            "targetcoin",
+            5,
+            &[coin(500, "nhash"), coin(1250, "yolocoin")],
+        );
+        validate_bid_order(&bid_order)
+            .expect("expected bid order to pass validation with multi coin quote");
+        validate_match(&deps.as_mut(), &ask_order, &bid_order).expect(
+            "expected match validation to pass when ask and bid order used a multi-coin quote",
+        );
+    }
+
+    #[test]
+    fn test_successful_marker_share_sale_multiple_transaction_validation() {
+        let mut deps = mock_dependencies(&[]);
+        let marker = MockMarker {
+            denom: "targetcoin".to_string(),
+            coins: coins(10, "targetcoin"),
+            ..MockMarker::default()
+        }
+        .to_marker();
+        deps.querier.with_markers(vec![marker.clone()]);
+        let mut ask_order = AskOrder::new(
+            "ask_id",
+            Addr::unchecked("asker"),
+            AskCollateral::marker_share_sale(
+                Addr::unchecked(DEFAULT_MARKER_ADDRESS),
+                "targetcoin",
+                10,
+                &coins(100, "nhash"),
+                &[AccessGrant {
+                    address: Addr::unchecked("asker"),
+                    permissions: vec![MarkerAccess::Admin],
+                }],
+                ShareSaleType::multiple(Some(5)),
+            ),
+            Some(RequestDescriptor::new_populated_attributes(
+                "ask description",
+                AttributeRequirement::none(&["a.pb", "b.pb"]),
+            )),
+        )
+        .expect("expected ask order to pass validation");
+        deps.querier
+            .with_attributes("asker", &[("second.pb", "value", "string")]);
+        let mut bid_order = BidOrder::new(
+            "bid_id",
+            Addr::unchecked("bidder"),
+            BidCollateral::marker_share_sale(
+                Addr::unchecked(DEFAULT_MARKER_ADDRESS),
+                "targetcoin",
+                5,
+                &coins(500, "nhash"),
+            ),
+            Some(RequestDescriptor::new_populated_attributes(
+                "bid description",
+                AttributeRequirement::any(&["first.pb", "second.pb"]),
+            )),
+        )
+        .expect("expected bid order to pass validation");
+        validate_match(&deps.as_mut(), &ask_order, &bid_order)
+            .expect("expected match validation to pass with correct parameters");
+        ask_order.collateral = AskCollateral::marker_share_sale(
+            Addr::unchecked(DEFAULT_MARKER_ADDRESS),
+            "targetcoin",
+            10,
+            &[coin(100, "nhash"), coin(250, "yolocoin")],
+            &[AccessGrant {
+                address: Addr::unchecked("asker"),
+                permissions: vec![MarkerAccess::Admin],
+            }],
+            ShareSaleType::multiple(Some(5)),
+        );
+        validate_ask_order(&ask_order)
+            .expect("expected ask order to pass validation with a multi coin quote per share");
+        bid_order.collateral = BidCollateral::marker_share_sale(
+            Addr::unchecked(DEFAULT_MARKER_ADDRESS),
+            "targetcoin",
+            5,
+            &[coin(500, "nhash"), coin(1250, "yolocoin")],
+        );
+        validate_bid_order(&bid_order)
+            .expect("expected bid order to pass validation with multi coin quote");
+        validate_match(&deps.as_mut(), &ask_order, &bid_order).expect(
+            "expected match validation to pass when ask and bid order used a multi-coin quote",
+        );
+    }
+
+    #[test]
+    fn test_successful_scope_trade_validation() {
+        let mut deps = mock_dependencies(&[]);
+        let mut ask_order = AskOrder::new(
+            "ask_id",
+            Addr::unchecked("asker"),
+            AskCollateral::scope_trade("scope", &coins(100, "nhash")),
+            Some(RequestDescriptor::new_populated_attributes(
+                "ask description",
+                AttributeRequirement::all(&["a.pb", "b.pb", "c.pb"]),
+            )),
+        )
+        .expect("expected ask order to pass validation");
+        let mut bid_order = BidOrder::new(
+            "bid_id",
+            Addr::unchecked("bidder"),
+            BidCollateral::scope_trade("scope", &coins(100, "nhash")),
+            Some(RequestDescriptor::new_populated_attributes(
+                "bid description",
+                AttributeRequirement::none(&["no-u.pio"]),
+            )),
+        )
+        .expect("expected bid order to pass validation");
+        deps.querier.with_attributes(
+            "bidder",
+            &[
+                ("a.pb", "value", "string"),
+                ("b.pb", "value", "string"),
+                ("c.pb", "value", "string"),
+            ],
+        );
+        validate_match(&deps.as_mut(), &ask_order, &bid_order)
+            .expect("expected match validation to pass for correct scope trade parameters");
+        ask_order.collateral =
+            AskCollateral::scope_trade("scope", &[coin(100, "acoin"), coin(100, "bcoin")]);
+        validate_ask_order(&ask_order).expect("multi coin ask order should pass validation");
+        bid_order.collateral =
+            BidCollateral::scope_trade("scope", &[coin(100, "acoin"), coin(100, "bcoin")]);
+        validate_bid_order(&bid_order).expect("multi coin bid order should pass validation");
+        validate_match(&deps.as_mut(), &ask_order, &bid_order).expect(
+            "expected match validation to pass when ask and bid order used a multi-coin quote",
+        );
     }
 
     #[test]
@@ -745,7 +965,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mismatched_marker_addresses() {
+    fn test_marker_trade_mismatched_marker_addresses() {
         let mut deps = mock_dependencies(&[]);
         assert_validation_failure(
             "Ask marker address does not match bid marker address",
@@ -759,7 +979,7 @@ mod tests {
     }
 
     #[test]
-    fn test_missing_marker_in_provland() {
+    fn test_marker_trade_missing_marker_in_provland() {
         let mut deps = mock_dependencies(&[]);
         assert_validation_failure(
             "No marker was mocked for target marker address",
@@ -771,7 +991,7 @@ mod tests {
     }
 
     #[test]
-    fn test_marker_unexpected_holdings() {
+    fn test_marker_trade_unexpected_holdings() {
         let mut deps = mock_dependencies(&[]);
         let mut marker = MockMarker {
             denom: "targetcoin".to_string(),
@@ -810,7 +1030,7 @@ mod tests {
     }
 
     #[test]
-    fn test_marker_unexpected_share_count() {
+    fn test_marker_trade_unexpected_share_count() {
         let mut deps = mock_dependencies(&[]);
         let marker = MockMarker {
             denom: "targetcoin".to_string(),
@@ -829,7 +1049,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mismatched_marker_ask_and_bid_quotes() {
+    fn test_mismatched_marker_trade_ask_and_bid_quotes() {
         let mut deps = mock_dependencies(&[]);
         let marker = MockMarker {
             denom: "targetcoin".to_string(),

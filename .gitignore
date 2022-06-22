@@ -1,5 +1,8 @@
 # ide
-.idea
+/.vscode/
+/.idea/
+/.run/
+*.iml
 
 # build artifacts
 artifacts

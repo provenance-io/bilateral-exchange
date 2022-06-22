@@ -170,6 +170,7 @@ pub fn release_marker_from_contract<S: Into<String>>(
 }
 
 #[cfg(test)]
+#[cfg(feature = "enable-test-utils")]
 mod tests {
     use super::*;
     use crate::test::mock_marker::MockMarker;

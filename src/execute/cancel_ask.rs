@@ -72,6 +72,7 @@ pub fn cancel_ask(
 }
 
 #[cfg(test)]
+#[cfg(feature = "enable-test-utils")]
 mod tests {
     use super::*;
     use crate::contract::execute;

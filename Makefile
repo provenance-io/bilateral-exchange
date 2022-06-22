@@ -22,7 +22,7 @@ build:
 
 .PHONY: test
 test:
-	@cargo test --verbose
+	@cargo test --verbose --features=enable-test-utils
 
 .PHONY: schema
 schema:
