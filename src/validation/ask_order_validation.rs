@@ -207,3 +207,7 @@ pub fn validate_ask_order(ask_order: &AskOrder) -> Result<(), ContractError> {
         .to_err()
     }
 }
+
+#[cfg(test)]
+#[cfg(feature = "enable-test-utils")]
+mod tests {}

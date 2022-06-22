@@ -22,6 +22,14 @@ pub fn marker_has_permissions(
     })
 }
 
+pub fn format_coin_display(coins: &[Coin]) -> String {
+    coins
+        .iter()
+        .map(|coin| format!("{}{}", coin.amount.u128(), coin.denom))
+        .collect::<Vec<String>>()
+        .join(", ")
+}
+
 pub fn marker_has_admin(marker: &Marker, admin_address: &Addr) -> bool {
     marker_has_permissions(marker, admin_address, &[MarkerAccess::Admin])
 }
