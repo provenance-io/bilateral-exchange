@@ -35,7 +35,11 @@ sealed interface AskCollateral {
           },
           "descriptor" : {
             "description" : "Example description",
-            "effective_time" : "1655690320315894000"
+            "effective_time" : "1655690320315894000",
+            "attribute_requirement" : {
+              "attributes" : [ "a.pb", "b.pio" ],
+              "requirement_type" : "all"
+            }
           }
         }
      */
@@ -69,7 +73,11 @@ sealed interface AskCollateral {
           },
           "descriptor" : {
             "description" : "Example description",
-            "effective_time" : "1655690830145197000"
+            "effective_time" : "1655690830145197000",
+            "attribute_requirement" : {
+              "attributes" : [ "attr.sc.pb", "other.pio" ],
+              "requirement_type" : "any"
+            }
           }
         }
      */
@@ -113,7 +121,11 @@ sealed interface AskCollateral {
           },
           "descriptor" : {
             "description" : "Example description",
-            "effective_time" : "1655691526779913000"
+            "effective_time" : "1655691526779913000",
+            "attribute_requirement" : {
+              "attributes" : [ "attr.sc.pb", "other.pio" ],
+              "requirement_type" : "none"
+            }
           }
         }
      */
@@ -147,7 +159,11 @@ sealed interface AskCollateral {
           },
           "descriptor" : {
             "description" : "Example description",
-            "effective_time" : "1655691957648311000"
+            "effective_time" : "1655691957648311000",
+            "attribute_requirement" : {
+              "attributes" : [ "yolo.pb", "nou.pio" ],
+              "requirement_type" : "all"
+            }
           }
         }
      */
@@ -180,7 +196,11 @@ sealed interface AskCollateral {
           },
           "descriptor" : {
             "description" : "Example description",
-            "effective_time" : "1655692117958721000"
+            "effective_time" : "1655692117958721000",
+            "attribute_requirement" : {
+              "attributes" : [ "abc.pb", "xyz.pio" ],
+              "requirement_type" : "any"
+            }
           }
         }
      */

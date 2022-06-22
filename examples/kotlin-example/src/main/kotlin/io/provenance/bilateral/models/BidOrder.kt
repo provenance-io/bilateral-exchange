@@ -35,7 +35,11 @@ sealed interface BidCollateral {
           },
           "descriptor" : {
             "description" : "Example description",
-            "effective_time" : "1655690324377129000"
+            "effective_time" : "1655690324377129000",
+            "attribute_requirement" : {
+              "attributes" : [ "heyo.pb" ],
+              "requirement_type" : "none"
+            }
           }
         }
      */
@@ -65,7 +69,11 @@ sealed interface BidCollateral {
           },
           "descriptor" : {
             "description" : "Example description",
-            "effective_time" : "1655690835272007000"
+            "effective_time" : "1655690835272007000",
+            "attribute_requirement" : {
+              "attributes" : [ "whooaaaaahhhh.attr", "other.pio" ],
+              "requirement_type" : "all"
+            }
           }
         }
      */
@@ -99,7 +107,11 @@ sealed interface BidCollateral {
           },
           "descriptor" : {
             "description" : "Example description",
-            "effective_time" : "1655691531898653000"
+            "effective_time" : "1655691531898653000",
+            "attribute_requirement" : {
+              "attributes" : [ "hey.pb", "lol.pio" ],
+              "requirement_type" : "any"
+            }
           }
         }
      */
@@ -124,7 +136,11 @@ sealed interface BidCollateral {
           },
           "descriptor" : {
             "description" : "Example description",
-            "effective_time" : "1655691962780823000"
+            "effective_time" : "1655691962780823000",
+            "attribute_requirement" : {
+              "attributes" : [ "aaaaaaahhhhh.pb", "helpme.pio" ],
+              "requirement_type" : "none"
+            }
           }
         }
      */
@@ -155,7 +171,11 @@ sealed interface BidCollateral {
           },
           "descriptor" : {
             "description" : "Example description",
-            "effective_time" : "1655692123071177000"
+            "effective_time" : "1655692123071177000",
+            "attribute_requirement" : {
+              "attributes" : [ "www.billywitchdoctor.com.pb", "jlksdfljksdfljk.pio" ],
+              "requirement_type" : "all"
+            }
           }
         }
      */

@@ -65,7 +65,11 @@ data class CreateBid(val createBid: Body) : ContractExecuteMsg {
                 },
                 "descriptor" : {
                   "description" : "Example description",
-                  "effective_time" : "1655690835272007000"
+                  "effective_time" : "1655690835272007000",
+                  "attribute_requirement": {
+                    "attributes" : [ "attribute.pb", "otherattribute.pb" ],
+                    "requirement_type" : "all"
+                  }
                 }
               }
             }
@@ -103,7 +107,10 @@ data class CreateBid(val createBid: Body) : ContractExecuteMsg {
                 },
                 "descriptor" : {
                   "description" : "Example description",
-                  "effective_time" : "1655691531898653000"
+                  "effective_time" : "1655691531898653000",
+                  "attribute_requirement" : {
+                    "attributes": [ "badattribute.pio" ],
+                    "requirement_type" : "none"
                 }
               }
             }
@@ -128,7 +135,11 @@ data class CreateBid(val createBid: Body) : ContractExecuteMsg {
                 },
                 "descriptor" : {
                   "description" : "Example description",
-                  "effective_time" : "1655691962780823000"
+                  "effective_time" : "1655691962780823000",
+                  "attribute_requirement" : {
+                    "attributes" : [ "a.pb", "b.pio" ],
+                    "requirement_type" : "all"
+                  }
                 }
               }
             }
@@ -165,7 +176,11 @@ data class CreateBid(val createBid: Body) : ContractExecuteMsg {
                 },
                 "descriptor" : {
                   "description" : "Example description",
-                  "effective_time" : "1655692123071177000"
+                  "effective_time" : "1655692123071177000",
+                  "attribute_requirement" : {
+                    "attributes" : [ "attr.sc.pb", "other.pio" ],
+                    "requirement_type" : "any"
+                  }
                 }
               }
             }
